@@ -10,12 +10,13 @@ struct RootView: View {
             TodayView()
                 .tabItem { Label("Today", systemImage: "plus.circle.fill") }
             ProgressView()
-                .tabItem { Label("Progress", systemImage: "chart.xyaxis.line") }
+                .tabItem { Label("Projection", systemImage: "chart.xyaxis.line") }
             HistoryView()
                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }
+        .background(Color.trendBackground.ignoresSafeArea())
         .tint(Color.trendTeal)
         .toolbarBackground(.ultraThinMaterial, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)

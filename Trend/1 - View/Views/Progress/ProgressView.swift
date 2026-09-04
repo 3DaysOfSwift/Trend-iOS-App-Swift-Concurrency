@@ -1,11 +1,9 @@
 // © www.3DaysOfSwiftConcurrency.com. All rights reserved.
 
-import Charts
 import SwiftUI
 
 struct ProgressView: View {
     @State private var viewModel = ProgressViewModel()
-    @State private var selectedDate: Date?
 
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -25,7 +23,12 @@ struct ProgressView: View {
                             .frame(minHeight: 340)
                     } else {
                         projectionHero(snapshot: viewModel.snapshot)
-                        chart(snapshot: viewModel.snapshot)
+                        TrendChartView(data: TrendChartData(
+                            snapshot: viewModel.snapshot,
+                            goalKilograms: viewModel.goalKilograms,
+                            unit: viewModel.unit
+                        ))
+                        .padding(.horizontal, -16)
                         summary(snapshot: viewModel.snapshot)
                         commentary(snapshot: viewModel.snapshot)
                     }
@@ -98,44 +101,6 @@ struct ProgressView: View {
             ),
             in: RoundedRectangle(cornerRadius: 24, style: .continuous)
         )
-    }
-
-    private func chart(snapshot: ProgressSnapshot) -> some View {
-        Chart {
-            ForEach(snapshot.points) { point in
-                LineMark(x: .value("Date", point.date), y: .value("Trend", point.smoothedKilograms))
-                    .interpolationMethod(.catmullRom)
-                    .foregroundStyle(Color.trendTeal)
-                    .lineStyle(.init(lineWidth: 3, lineCap: .round))
-                PointMark(x: .value("Date", point.date), y: .value("Weight", point.kilograms))
-                    .foregroundStyle(.secondary.opacity(0.65))
-            }
-            ForEach(snapshot.projectionPoints) { point in
-                LineMark(
-                    x: .value("Projected date", point.date),
-                    y: .value("Projected weight", point.kilograms),
-                    series: .value("Series", "Projection")
-                )
-                .interpolationMethod(.linear)
-                .foregroundStyle(projectionColour(snapshot: snapshot))
-                .lineStyle(.init(lineWidth: 3, lineCap: .round, dash: [7, 6]))
-            }
-            if let goal = viewModel.goalKilograms {
-                RuleMark(y: .value("Goal", goal))
-                    .foregroundStyle(.orange)
-                    .lineStyle(.init(dash: [5, 5]))
-                    .annotation(position: .top, alignment: .trailing) {
-                        Text("Goal").font(.caption).foregroundStyle(.orange)
-                    }
-            }
-        }
-        .chartYScale(domain: snapshot.domain ?? 0...100)
-        .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) }
-        .chartXSelection(value: $selectedDate)
-        .frame(height: 320)
-        .padding()
-        .background(Color.trendSurface, in: RoundedRectangle(cornerRadius: 18))
-        .accessibilityLabel("Weight history and 30-day projection chart with \(snapshot.points.count) entries")
     }
 
     private func projectionColour(snapshot: ProgressSnapshot) -> Color {

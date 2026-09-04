@@ -12,6 +12,7 @@ protocol TodayFeature: AnyObject {
     var latestWeightEntry: WeightEntry? { get }
     var latestWeightChangeKilograms: Double? { get }
     var progressSnapshot: ProgressSnapshot { get }
+    var goalWeightKilograms: Double? { get }
     var dailyStreakSnapshot: DailyStreakSnapshot { get }
     var selectedWeightUnit: WeightUnit { get }
     var latestPermittedEntryDate: Date { get }

@@ -46,6 +46,7 @@ final class WeightEntryManager: WeightEntryFeature {
     var latestWeightEntry: WeightEntry? { weightLog.latestEntry }
     var latestWeightChangeKilograms: Double? { progress.snapshot.changeKilograms }
     var progressSnapshot: ProgressSnapshot { progress.snapshot }
+    var goalWeightKilograms: Double? { weightLog.goalKilograms }
     var dailyStreakSnapshot: DailyStreakSnapshot { dailyStreak.snapshot }
     var selectedWeightUnit: WeightUnit { settings.unit }
     var latestPermittedEntryDate: Date { currentDate() }

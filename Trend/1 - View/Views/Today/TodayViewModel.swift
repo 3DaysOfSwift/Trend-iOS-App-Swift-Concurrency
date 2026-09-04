@@ -21,6 +21,7 @@ final class TodayViewModel {
     var latestEntry: WeightEntry? { today.latestWeightEntry }
     var changeKilograms: Double? { today.latestWeightChangeKilograms }
     var progressSnapshot: ProgressSnapshot { today.progressSnapshot }
+    var goalKilograms: Double? { today.goalWeightKilograms }
     var streakSnapshot: DailyStreakSnapshot { today.dailyStreakSnapshot }
     var unit: WeightUnit { today.selectedWeightUnit }
     var latestPermittedEntryDate: Date { today.latestPermittedEntryDate }
@@ -33,7 +34,6 @@ final class TodayViewModel {
 
         do {
             submittedResult = try await today.checkIn(draft)
-            draft = today.makeWeightEntryDraft(editing: nil)
             errorMessage = nil
             return true
         } catch {
@@ -43,6 +43,7 @@ final class TodayViewModel {
     }
 
     func beginAnotherCheckIn() {
+        draft = today.makeWeightEntryDraft(editing: nil)
         submittedResult = nil
         errorMessage = nil
     }

@@ -38,7 +38,7 @@ struct TodayViewModelTests {
         #expect(viewModel.unit == .pounds)
     }
 
-    @Test func savingWeightPublishesEntryAndClearsDraft() async {
+    @Test func savingWeightPublishesEntryAndKeepsSubmittedDraft() async {
         let repository = InMemoryWeightRepository()
         let brain = TestAppBrainFactory.make(repository: repository)
         let viewModel = TodayViewModel(today: brain.weightEntries)
@@ -53,10 +53,21 @@ struct TodayViewModelTests {
         #expect(didSave)
         #expect(brain.weightEntries.latestWeightEntry?.kilograms == 72.5)
         #expect(brain.weightEntries.latestWeightEntry?.note == "Morning")
-        #expect(viewModel.draft.value.isEmpty)
+        #expect(viewModel.draft.value == "72.5")
         #expect(viewModel.errorMessage == nil)
         #expect(!viewModel.isSaving)
         #expect(viewModel.submittedResult != nil)
+    }
+
+    @Test func beginningAnotherCheckInCreatesFreshDraft() async {
+        let viewModel = TodayViewModel(today: TestAppBrainFactory.make().weightEntries)
+        viewModel.draft.value = "72.5"
+
+        #expect(await viewModel.save())
+        viewModel.beginAnotherCheckIn()
+
+        #expect(viewModel.draft.value.isEmpty)
+        #expect(viewModel.submittedResult == nil)
     }
 
     @Test func invalidWeightRemainsInDraftAndShowsMessage() async {

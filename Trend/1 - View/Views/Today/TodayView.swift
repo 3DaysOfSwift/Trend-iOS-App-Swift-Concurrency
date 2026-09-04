@@ -1,6 +1,5 @@
 // © www.3DaysOfSwiftConcurrency.com. All rights reserved.
 
-import Charts
 import SwiftUI
 
 struct TodayView: View {
@@ -14,6 +13,9 @@ struct TodayView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                Color.trendBackground
+                    .ignoresSafeArea()
+
                 if showsResult, let result = viewModel.submittedResult {
                     resultContent(result)
                         .transition(.opacity.combined(with: .scale(scale: 0.96)))
@@ -24,7 +26,6 @@ struct TodayView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.trendBackground)
             .toolbar(.hidden, for: .navigationBar)
             .safeAreaInset(edge: .top, spacing: 0) {
                 streakBar
@@ -244,7 +245,7 @@ struct TodayView: View {
 
     private func resultContent(_ result: DailyCheckInResult) -> some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: 14) {
                 Text("YOUR TREND")
                     .font(.caption.weight(.bold))
                     .tracking(2)
@@ -324,12 +325,6 @@ struct TodayView: View {
                     .font(.title2.bold().monospacedDigit())
                     .foregroundStyle(colour)
             }
-
-            Text(assessment.message)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 360)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 8)
@@ -337,62 +332,12 @@ struct TodayView: View {
     }
 
     private var progressCard: some View {
-        let snapshot = viewModel.progressSnapshot
-        let domain = snapshot.domain ?? 0...100
-
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Label("Your progress", systemImage: "chart.xyaxis.line")
-                    .font(.headline)
-                Spacer()
-                if let change = snapshot.changeKilograms {
-                    Text(viewModel.unit.formatted(kilograms: change, signed: true))
-                        .font(.subheadline.bold().monospacedDigit())
-                        .foregroundStyle(snapshot.changeDirection == .worsening ? .red : .green)
-                }
-            }
-
-            if snapshot.points.count > 1 {
-                Chart(snapshot.points) { point in
-                    AreaMark(
-                        x: .value("Date", point.date),
-                        yStart: .value("Chart minimum", domain.lowerBound),
-                        yEnd: .value("Trend", point.smoothedKilograms)
-                    )
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.trendTeal.opacity(0.32), Color.trendTeal.opacity(0.02)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-
-                    LineMark(
-                        x: .value("Date", point.date),
-                        y: .value("Trend", point.smoothedKilograms)
-                    )
-                    .interpolationMethod(.catmullRom)
-                    .foregroundStyle(Color.trendTeal)
-                    .lineStyle(.init(lineWidth: 4, lineCap: .round))
-                }
-                .chartXAxis(.hidden)
-                .chartYAxis(.hidden)
-                .chartYScale(domain: domain)
-                .chartPlotStyle { plotArea in
-                    plotArea.clipped()
-                }
-                .frame(height: 130)
-                .clipped()
-                .accessibilityLabel("Weight progress chart")
-            } else {
-                Text("Your chart will take shape after another check-in.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 72, alignment: .center)
-            }
-        }
-        .padding(20)
-        .background(Color.trendSurface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        TrendChartView(data: TrendChartData(
+            snapshot: viewModel.progressSnapshot,
+            goalKilograms: viewModel.goalKilograms,
+            unit: viewModel.unit
+        ))
+        .padding(.horizontal, -20)
     }
 
     private func guidanceCard(
