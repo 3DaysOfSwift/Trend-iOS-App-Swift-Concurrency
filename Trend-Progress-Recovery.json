@@ -1,0 +1,35 @@
+{
+  "entries" : [
+    {
+      "date" : "2026-09-03T13:13:25Z",
+      "id" : "0794E7E3-39B9-4C8C-AF45-120429843EFF",
+      "kilograms" : 69.7,
+      "note" : ""
+    },
+    {
+      "date" : "2026-09-03T12:03:09Z",
+      "id" : "534EA6C2-D9B6-46DD-BEEB-3446CAFE4CA0",
+      "kilograms" : 68.3,
+      "note" : ""
+    },
+    {
+      "date" : "2026-09-03T12:02:58Z",
+      "id" : "8AD94B4E-CF51-48A6-BC23-874794007F8C",
+      "kilograms" : 68.7,
+      "note" : ""
+    },
+    {
+      "date" : "2026-09-03T12:02:41Z",
+      "id" : "D2FE9CDD-AB99-44ED-A7E5-0BA700A4D9CF",
+      "kilograms" : 78.9,
+      "note" : ""
+    },
+    {
+      "date" : "2026-09-03T12:00:41Z",
+      "id" : "3585881B-8EA9-463C-B591-FC152802859F",
+      "kilograms" : 79.6,
+      "note" : "Feel ok"
+    }
+  ],
+  "goalKilograms" : null
+}
