@@ -1,3 +1,5 @@
+// © www.3DaysOfSwiftConcurrency.com. All rights reserved.
+
 import Foundation
 
 /// Reads user-selected backup documents outside the main actor and returns the

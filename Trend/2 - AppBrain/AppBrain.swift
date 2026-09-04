@@ -1,3 +1,5 @@
+// © www.3DaysOfSwiftConcurrency.com. All rights reserved.
+
 import Foundation
 
 /// The composition root for the application.
@@ -5,7 +7,7 @@ import Foundation
 /// AppBrain chooses and connects feature managers. Application behavior lives
 /// in those features rather than accumulating in this assembly type.
 @MainActor
-final class AppBrain: ApplicationLifecycleFeature {
+final class AppBrain {
     /// The single production dependency graph used by the running app.
     static let shared = AppBrain.live()
 

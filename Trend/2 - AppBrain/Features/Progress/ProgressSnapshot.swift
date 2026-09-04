@@ -1,3 +1,5 @@
+// © www.3DaysOfSwiftConcurrency.com. All rights reserved.
+
 import Foundation
 
 enum ProgressDirection: Sendable, Equatable {

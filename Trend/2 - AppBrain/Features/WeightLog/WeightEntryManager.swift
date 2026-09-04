@@ -1,3 +1,5 @@
+// © www.3DaysOfSwiftConcurrency.com. All rights reserved.
+
 import Foundation
 
 /// Owns every workflow concerned with creating, editing, listing, and deleting

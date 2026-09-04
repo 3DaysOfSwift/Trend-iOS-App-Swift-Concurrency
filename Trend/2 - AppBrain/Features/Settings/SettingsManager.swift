@@ -1,3 +1,5 @@
+// © www.3DaysOfSwiftConcurrency.com. All rights reserved.
+
 import Foundation
 
 /// Owns settings, goal, backup, and whole-account data workflows.

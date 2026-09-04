@@ -1,3 +1,5 @@
+// © www.3DaysOfSwiftConcurrency.com. All rights reserved.
+
 import Foundation
 
 struct WeightEntry: Identifiable, Codable, Hashable, Sendable {

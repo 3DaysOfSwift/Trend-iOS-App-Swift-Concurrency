@@ -1,3 +1,5 @@
+// © www.3DaysOfSwiftConcurrency.com. All rights reserved.
+
 import SwiftUI
 
 struct MetricCard<Content: View>: View {

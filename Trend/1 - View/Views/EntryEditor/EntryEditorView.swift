@@ -1,3 +1,5 @@
+// © www.3DaysOfSwiftConcurrency.com. All rights reserved.
+
 import SwiftUI
 
 struct EntryEditorView: View {

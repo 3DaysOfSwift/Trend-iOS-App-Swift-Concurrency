@@ -1,14 +1,16 @@
+// © www.3DaysOfSwiftConcurrency.com. All rights reserved.
+
 import Foundation
 import Observation
 
 @MainActor
 @Observable
 final class RootViewModel {
-    private let application: any ApplicationLifecycleFeature
+    private let appBrain: AppBrain
 
-    init(application: any ApplicationLifecycleFeature = AppBrain.shared) {
-        self.application = application
+    init(appBrain: AppBrain = .shared) {
+        self.appBrain = appBrain
     }
 
-    func start() async { await application.start() }
+    func start() async { await appBrain.start() }
 }

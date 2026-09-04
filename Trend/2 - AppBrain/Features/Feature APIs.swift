@@ -1,14 +1,11 @@
+// © www.3DaysOfSwiftConcurrency.com. All rights reserved.
+
 import Foundation
 
 /// The narrow application capabilities retained by ViewModels.
 ///
 /// These protocols describe what each part of the application can do without
 /// exposing which managers, repositories, or workflows implement that behavior.
-
-@MainActor
-protocol ApplicationLifecycleFeature: AnyObject {
-    func start() async
-}
 
 @MainActor
 protocol TodayFeature: AnyObject {
