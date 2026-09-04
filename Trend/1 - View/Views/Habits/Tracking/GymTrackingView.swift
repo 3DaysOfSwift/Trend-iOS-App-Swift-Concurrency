@@ -29,6 +29,9 @@ struct GymTrackingView: View {
         .navigationTitle("Gym Repetitions")
         .navigationBarTitleDisplayMode(.inline)
         .habitErrorAlert(viewModel)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HabitDayStreakBanner(data: viewModel.weekSnapshot, symbol: viewModel.habit.symbol)
+        }
     }
 
     private func repetitionButton(_ title: String, amount: Double) -> some View {

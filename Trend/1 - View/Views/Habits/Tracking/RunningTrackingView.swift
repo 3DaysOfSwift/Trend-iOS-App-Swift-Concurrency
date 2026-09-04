@@ -31,5 +31,8 @@ struct RunningTrackingView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { if viewModel.hasCheckedInToday { distance = viewModel.todayValue } }
         .habitErrorAlert(viewModel)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HabitDayStreakBanner(data: viewModel.weekSnapshot, symbol: viewModel.habit.symbol)
+        }
     }
 }

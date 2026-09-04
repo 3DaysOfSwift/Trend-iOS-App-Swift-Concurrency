@@ -55,8 +55,69 @@ final class HabitsManager: HabitsFeature {
         try await persist(habits: habits, entries: updatedEntries)
     }
 
+    func removeOne(for habitID: String, on date: Date) async throws {
+        guard let existingEntry = entry(for: habitID, on: date), existingEntry.value > 0 else { return }
+
+        if existingEntry.value > 1 {
+            try await record(existingEntry.value - 1, for: habitID, on: date)
+        } else {
+            let updatedEntries = entries.filter { $0.id != existingEntry.id }
+            try await persist(habits: habits, entries: updatedEntries)
+        }
+    }
+
     func entry(for habitID: String, on date: Date) -> HabitEntry? {
         entries.first { $0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: date) }
+    }
+
+    func weekSnapshot(for habitID: String, on date: Date) -> HabitWeekSnapshot {
+        var mondayCalendar = calendar
+        mondayCalendar.firstWeekday = 2
+        let startOfToday = mondayCalendar.startOfDay(for: date)
+        let weekday = mondayCalendar.component(.weekday, from: startOfToday)
+        let daysSinceMonday = (weekday - mondayCalendar.firstWeekday + 7) % 7
+        let monday = mondayCalendar.date(byAdding: .day, value: -daysSinceMonday, to: startOfToday) ?? startOfToday
+
+        let days = (0..<7).compactMap { offset -> HabitWeekSnapshot.Day? in
+            guard let day = mondayCalendar.date(byAdding: .day, value: offset, to: monday) else { return nil }
+            let entry = entry(for: habitID, on: day)
+            return HabitWeekSnapshot.Day(
+                date: day,
+                value: entry?.value ?? 0,
+                hasCheckIn: entry != nil,
+                isToday: mondayCalendar.isDate(day, inSameDayAs: startOfToday)
+            )
+        }
+        return HabitWeekSnapshot(
+            currentStreak: currentStreak(for: habitID, on: startOfToday),
+            days: days
+        )
+    }
+
+    func lifetimeSummary(for habitID: String) -> HabitLifetimeSummary {
+        let habitEntries = entries.filter { $0.habitID == habitID }
+        return HabitLifetimeSummary(
+            totalValue: habitEntries.reduce(0) { $0 + $1.value },
+            firstEntryDate: habitEntries.map(\.date).min()
+        )
+    }
+
+    private func currentStreak(for habitID: String, on date: Date) -> Int {
+        var day = calendar.startOfDay(for: date)
+
+        // Today's streak remains alive until the day ends, just as it does for
+        // the primary weight check-in streak.
+        if entry(for: habitID, on: day) == nil {
+            day = calendar.date(byAdding: .day, value: -1, to: day) ?? day
+        }
+
+        var streak = 0
+        while entry(for: habitID, on: day) != nil {
+            streak += 1
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: day) else { break }
+            day = previousDay
+        }
+        return streak
     }
 
     private func persist(habits: [Habit], entries: [HabitEntry]) async throws {

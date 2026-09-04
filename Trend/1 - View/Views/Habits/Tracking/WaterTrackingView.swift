@@ -34,5 +34,8 @@ struct WaterTrackingView: View {
         .navigationTitle("Water")
         .navigationBarTitleDisplayMode(.inline)
         .habitErrorAlert(viewModel)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HabitDayStreakBanner(data: viewModel.weekSnapshot, symbol: viewModel.habit.symbol)
+        }
     }
 }

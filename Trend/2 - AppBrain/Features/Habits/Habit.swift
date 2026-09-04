@@ -35,3 +35,25 @@ struct HabitStore: Codable, Equatable, Sendable {
     var habits: [Habit]
     var entries: [HabitEntry]
 }
+
+struct HabitWeekSnapshot: Equatable, Sendable {
+    struct Day: Identifiable, Equatable, Sendable {
+        var id: Date { date }
+        let date: Date
+        let value: Double
+        let hasCheckIn: Bool
+        let isToday: Bool
+    }
+
+    let currentStreak: Int
+    let days: [Day]
+
+    var totalValue: Double {
+        days.reduce(0) { $0 + $1.value }
+    }
+}
+
+struct HabitLifetimeSummary: Equatable, Sendable {
+    let totalValue: Double
+    let firstEntryDate: Date?
+}

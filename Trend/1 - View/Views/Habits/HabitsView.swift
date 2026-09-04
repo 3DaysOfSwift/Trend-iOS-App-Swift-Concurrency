@@ -32,17 +32,17 @@ struct HabitsView: View {
                     }
                 }
             }
-            .sheet(isPresented: $viewModel.isChoosingHabits) {
-                HabitLibraryView()
-            }
-            .alert("Trend Habits", isPresented: Binding(
-                get: { viewModel.purchaseMessage != nil },
-                set: { if !$0 { viewModel.dismissPurchaseMessage() } }
-            )) {
-                Button("OK") { viewModel.dismissPurchaseMessage() }
-            } message: {
-                Text(viewModel.purchaseMessage ?? "")
-            }
+        }
+        .sheet(isPresented: $viewModel.isChoosingHabits) {
+            HabitLibraryView()
+        }
+        .alert("Trend Habits", isPresented: Binding(
+            get: { viewModel.purchaseMessage != nil },
+            set: { if !$0 { viewModel.dismissPurchaseMessage() } }
+        )) {
+            Button("OK") { viewModel.dismissPurchaseMessage() }
+        } message: {
+            Text(viewModel.purchaseMessage ?? "")
         }
     }
 

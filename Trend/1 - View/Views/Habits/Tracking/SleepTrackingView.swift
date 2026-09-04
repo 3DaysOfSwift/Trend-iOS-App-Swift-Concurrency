@@ -31,5 +31,8 @@ struct SleepTrackingView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { if viewModel.hasCheckedInToday { hours = viewModel.todayValue } }
         .habitErrorAlert(viewModel)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HabitDayStreakBanner(data: viewModel.weekSnapshot, symbol: viewModel.habit.symbol)
+        }
     }
 }

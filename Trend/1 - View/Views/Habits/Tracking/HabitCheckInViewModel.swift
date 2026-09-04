@@ -31,8 +31,29 @@ final class HabitCheckInViewModel {
         habitsFeature.entry(for: habit.id, on: currentDate()) != nil
     }
 
+    var weekSnapshot: HabitWeekSnapshot {
+        habitsFeature.weekSnapshot(for: habit.id, on: currentDate())
+    }
+
+    var weeklyTotal: Int {
+        Int(weekSnapshot.totalValue)
+    }
+
+    var lifetimeSummary: HabitLifetimeSummary {
+        habitsFeature.lifetimeSummary(for: habit.id)
+    }
+
     func increment(by amount: Double = 1) async {
         await record(todayValue + amount)
+    }
+
+    func removeOne() async {
+        do {
+            try await habitsFeature.removeOne(for: habit.id, on: currentDate())
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     func record(_ value: Double) async {

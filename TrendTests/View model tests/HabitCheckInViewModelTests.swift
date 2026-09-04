@@ -23,6 +23,23 @@ struct HabitCheckInViewModelTests {
         #expect(viewModel.hasCheckedInToday)
     }
 
+    @Test func removingTheLastCoffeeRemovesTodaysCheckIn() async throws {
+        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let date = Date(timeIntervalSince1970: 1_788_480_000)
+        try await manager.selectTemplates([HabitTemplate.coffee.id])
+        let viewModel = HabitCheckInViewModel(
+            template: .coffee,
+            habitsFeature: manager,
+            currentDate: { date }
+        )
+
+        await viewModel.increment()
+        await viewModel.removeOne()
+
+        #expect(viewModel.todayValue == 0)
+        #expect(!viewModel.hasCheckedInToday)
+    }
+
     @Test func currentTimeIsStoredAsMinutesAfterMidnight() async throws {
         let manager = HabitsManager(repository: InMemoryHabitRepository())
         var calendar = Calendar(identifier: .gregorian)
