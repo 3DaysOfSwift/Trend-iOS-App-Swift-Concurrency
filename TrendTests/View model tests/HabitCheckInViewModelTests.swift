@@ -40,7 +40,7 @@ struct HabitCheckInViewModelTests {
         #expect(!viewModel.hasCheckedInToday)
     }
 
-    @Test func currentTimeIsStoredAsMinutesAfterMidnight() async throws {
+    @Test func selectedTimeIsStoredAsMinutesAfterMidnight() async throws {
         let manager = HabitsManager(repository: InMemoryHabitRepository())
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -52,10 +52,19 @@ struct HabitCheckInViewModelTests {
             currentDate: { date }
         )
 
-        await viewModel.recordCurrentTime()
+        let saved = await viewModel.recordTime(date)
 
         let expected = Calendar.current.component(.hour, from: date) * 60
             + Calendar.current.component(.minute, from: date)
+        #expect(saved)
         #expect(viewModel.todayValue == Double(expected))
+        #expect(
+            Calendar.current.component(.hour, from: viewModel.timeForPicker)
+                == Calendar.current.component(.hour, from: date)
+        )
+        #expect(
+            Calendar.current.component(.minute, from: viewModel.timeForPicker)
+                == Calendar.current.component(.minute, from: date)
+        )
     }
 }

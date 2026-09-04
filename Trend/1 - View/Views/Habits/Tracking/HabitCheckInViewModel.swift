@@ -65,9 +65,22 @@ final class HabitCheckInViewModel {
         }
     }
 
-    func recordCurrentTime() async {
-        let components = Calendar.current.dateComponents([.hour, .minute], from: currentDate())
+    var timeForPicker: Date {
+        guard hasCheckedInToday else { return currentDate() }
+        let hour = Int(todayValue) / 60
+        let minute = Int(todayValue) % 60
+        return Calendar.current.date(
+            bySettingHour: hour,
+            minute: minute,
+            second: 0,
+            of: currentDate()
+        ) ?? currentDate()
+    }
+
+    func recordTime(_ time: Date) async -> Bool {
+        let components = Calendar.current.dateComponents([.hour, .minute], from: time)
         await record(Double((components.hour ?? 0) * 60 + (components.minute ?? 0)))
+        return errorMessage == nil
     }
 
     func dismissError() { errorMessage = nil }
