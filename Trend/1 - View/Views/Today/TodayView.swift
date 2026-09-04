@@ -121,6 +121,8 @@ struct TodayView: View {
 
         return ScrollView {
             VStack(spacing: 22) {
+                pageTitle
+
                 Text("How much do you weigh today?")
                     .font(.title2.weight(.semibold))
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -249,10 +251,7 @@ struct TodayView: View {
     private func resultContent(_ result: DailyCheckInResult) -> some View {
         ScrollView {
             VStack(spacing: 14) {
-                Text("YOUR TREND")
-                    .font(.caption.weight(.bold))
-                    .tracking(2)
-                    .foregroundStyle(.secondary)
+                pageTitle
                 verdict(result.assessment)
                 progressCard
                 guidanceCard(
@@ -301,6 +300,12 @@ struct TodayView: View {
             .padding(.bottom, 32)
         }
         .scrollIndicators(.hidden)
+    }
+
+    private var pageTitle: some View {
+        Text("Today")
+            .font(.largeTitle.bold())
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func verdict(_ assessment: DailyTrendAssessment) -> some View {

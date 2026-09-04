@@ -12,8 +12,8 @@ struct RootView: View {
                 .tabItem { Label("Today", systemImage: "plus.circle.fill") }
             ProgressView()
                 .tabItem { Label("Projection", systemImage: "chart.xyaxis.line") }
-            HistoryView()
-                .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
+            HabitsView()
+                .tabItem { Label("Habits", systemImage: "scope") }
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }

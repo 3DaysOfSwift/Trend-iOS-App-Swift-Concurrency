@@ -70,3 +70,29 @@ protocol SettingsFeature: AnyObject {
     func importData(from url: URL) async throws
     func deleteAllData() async throws
 }
+
+@MainActor
+protocol HabitsFeature: AnyObject {
+    var habits: [Habit] { get }
+    var entries: [HabitEntry] { get }
+    var errorMessage: String? { get }
+
+    func refresh() async
+    func selectTemplates(_ templateIDs: Set<String>) async throws
+    func record(_ value: Double, for habitID: String, on date: Date) async throws
+    func entry(for habitID: String, on date: Date) -> HabitEntry?
+}
+
+@MainActor
+protocol PurchaseFeature: AnyObject {
+    var habitsProduct: PurchaseProduct? { get }
+    var hasUnlockedHabits: Bool { get }
+    var isLoading: Bool { get }
+    var isPurchasing: Bool { get }
+    var message: String? { get }
+
+    func start() async
+    func purchaseHabits() async
+    func restorePurchases() async
+    func dismissMessage()
+}

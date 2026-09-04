@@ -14,6 +14,8 @@ final class AppBrain {
     let weightEntries: any WeightEntryFeature
     let progressFeature: any ProgressFeature
     let settingsFeature: any SettingsFeature
+    let habitsFeature: any HabitsFeature
+    let purchaseFeature: any PurchaseFeature
     private let dailyTips: DailyTipManager
     private var hasStarted: Bool
 
@@ -21,11 +23,15 @@ final class AppBrain {
         weightEntries: any WeightEntryFeature,
         progressFeature: any ProgressFeature,
         settingsFeature: any SettingsFeature,
+        habitsFeature: any HabitsFeature,
+        purchaseFeature: any PurchaseFeature,
         dailyTips: DailyTipManager
     ) {
         self.weightEntries = weightEntries
         self.progressFeature = progressFeature
         self.settingsFeature = settingsFeature
+        self.habitsFeature = habitsFeature
+        self.purchaseFeature = purchaseFeature
         self.dailyTips = dailyTips
         self.hasStarted = false
     }
@@ -41,6 +47,8 @@ final class AppBrain {
         let dailyTips = DailyTipManager()
         let dailyStreak = DailyStreakManager(trend: dailyTrend)
         let backupFiles = BackupFileManager()
+        let habits = HabitsManager(repository: FileHabitRepository())
+        let purchases = PurchaseManager(client: StoreKitPurchaseClient())
 
         // A function, rather than a stored Date, keeps production time moving
         // while allowing tests to provide a fixed clock.
@@ -71,6 +79,8 @@ final class AppBrain {
             weightEntries: weightEntries,
             progressFeature: progressFeature,
             settingsFeature: settingsFeature,
+            habitsFeature: habits,
+            purchaseFeature: purchases,
             dailyTips: dailyTips
         )
     }
@@ -88,8 +98,16 @@ final class AppBrain {
         let weightEntriesTask = Task { @MainActor [weightEntries] in
             await weightEntries.refresh()
         }
+        let habitsTask = Task { @MainActor [habitsFeature] in
+            await habitsFeature.refresh()
+        }
+        let purchasesTask = Task { @MainActor [purchaseFeature] in
+            await purchaseFeature.start()
+        }
 
         await cloudStatusTask.value
         await weightEntriesTask.value
+        await habitsTask.value
+        await purchasesTask.value
     }
 }

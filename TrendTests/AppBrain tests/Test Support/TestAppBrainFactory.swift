@@ -42,6 +42,8 @@ enum TestAppBrainFactory {
                 dailyStreak: dailyStreak,
                 backupFiles: BackupFileManager()
             ),
+            habitsFeature: HabitsManager(repository: InMemoryHabitRepository()),
+            purchaseFeature: PurchaseManager(client: InMemoryPurchaseClient()),
             dailyTips: dailyTips
         )
     }

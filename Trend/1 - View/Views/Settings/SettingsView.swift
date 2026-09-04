@@ -44,6 +44,16 @@ struct SettingsView: View {
                     }
                 }
                 Section("Your data") {
+                    NavigationLink {
+                        HistoryView()
+                    } label: {
+                        Label("Weight history", systemImage: "clock.arrow.circlepath")
+                    }
+                    NavigationLink {
+                        HabitHistoryView()
+                    } label: {
+                        Label("Habit history", systemImage: "scope")
+                    }
                     LabeledContent("iCloud", value: viewModel.cloudStatus.label)
                     Button("Export backup", systemImage: "square.and.arrow.up") {
                         Task { await viewModel.prepareExport() }

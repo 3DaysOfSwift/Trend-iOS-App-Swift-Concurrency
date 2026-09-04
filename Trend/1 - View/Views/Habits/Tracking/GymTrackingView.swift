@@ -1,0 +1,40 @@
+// © www.3DaysOfSwiftConcurrency.com. All rights reserved.
+
+import SwiftUI
+
+struct GymTrackingView: View {
+    @State private var viewModel = HabitCheckInViewModel(template: .gymRepetitions)
+    @Environment(ThemeManager.self) private var themeManager
+
+    var body: some View {
+        VStack(spacing: 26) {
+            Spacer()
+            Image(systemName: "dumbbell.fill")
+                .font(.system(size: 74))
+                .foregroundStyle(themeManager.palette.accent)
+            Text("\(Int(viewModel.todayValue))")
+                .font(.system(size: 88, weight: .black, design: .rounded).monospacedDigit())
+            Text("repetitions today").font(.title3).foregroundStyle(.secondary)
+            HStack(spacing: 16) {
+                repetitionButton("+1", amount: 1)
+                repetitionButton("+5", amount: 5)
+                repetitionButton("+10", amount: 10)
+            }
+            Text("Finish a set. Add the reps. Keep moving.")
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(themeManager.palette.background.ignoresSafeArea())
+        .navigationTitle("Gym Repetitions")
+        .navigationBarTitleDisplayMode(.inline)
+        .habitErrorAlert(viewModel)
+    }
+
+    private func repetitionButton(_ title: String, amount: Double) -> some View {
+        Button(title) { Task { await viewModel.increment(by: amount) } }
+            .font(.title2.bold())
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+    }
+}

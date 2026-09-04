@@ -1,0 +1,36 @@
+{
+  "identifier" : "A4A18E51-6B9D-4B20-BDAB-7CDCEFA6BF95",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "1F7D269A-3D75-463D-BA65-23C31170BE3B",
+      "localizations" : [
+        {
+          "description" : "Choose the daily signals that matter to you and reveal their direction over time.",
+          "displayName" : "Trend Habits",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.mattharding.Trend.habits",
+      "referenceName" : "Trend Habits",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA"
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
+

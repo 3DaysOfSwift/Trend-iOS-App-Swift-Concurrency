@@ -8,6 +8,8 @@ settings:
     SWIFT_VERSION: 6.0
     DEVELOPMENT_TEAM: PLPUN94HL2
     CODE_SIGN_STYLE: Automatic
+fileGroups:
+  - StoreKit Configuration
 targets:
   Trend:
     type: application
