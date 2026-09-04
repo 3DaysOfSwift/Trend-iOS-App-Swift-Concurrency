@@ -5,6 +5,7 @@ import SwiftUI
 struct MetricCard<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
+    @Environment(ThemeManager.self) private var themeManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -13,6 +14,6 @@ struct MetricCard<Content: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color.trendSurface, in: RoundedRectangle(cornerRadius: 18))
+        .background(themeManager.palette.surface, in: RoundedRectangle(cornerRadius: 18))
     }
 }

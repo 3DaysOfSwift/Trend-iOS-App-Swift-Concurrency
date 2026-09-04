@@ -14,6 +14,7 @@ struct TrendChartData {
 struct TrendChartView: View {
     let data: TrendChartData
     @State private var selectedDate: Date?
+    @Environment(ThemeManager.self) private var themeManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -48,7 +49,7 @@ struct TrendChartView: View {
         Chart {
             if let onlyPoint = singlePoint {
                 RuleMark(y: .value("Starting weight", onlyPoint.kilograms))
-                    .foregroundStyle(Color.trendTeal)
+                    .foregroundStyle(themeManager.palette.chart)
                     .lineStyle(.init(lineWidth: 4, lineCap: .round))
             }
 
@@ -60,7 +61,7 @@ struct TrendChartView: View {
                 )
                 .foregroundStyle(
                     LinearGradient(
-                        colors: [Color.trendTeal.opacity(0.30), Color.trendTeal.opacity(0.02)],
+                        colors: [themeManager.palette.chart.opacity(0.30), themeManager.palette.chart.opacity(0.02)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -72,14 +73,14 @@ struct TrendChartView: View {
                     series: .value("Series", "Recorded trend")
                 )
                 .interpolationMethod(.catmullRom)
-                .foregroundStyle(Color.trendTeal)
+                .foregroundStyle(themeManager.palette.chart)
                 .lineStyle(.init(lineWidth: 4, lineCap: .round))
 
                 PointMark(
                     x: .value("Date", point.date),
                     y: .value("Weight", point.kilograms)
                 )
-                .foregroundStyle(Color.trendTeal.opacity(0.38))
+                .foregroundStyle(themeManager.palette.chart.opacity(0.38))
             }
 
             ForEach(data.snapshot.projectionPoints) { point in
@@ -95,12 +96,12 @@ struct TrendChartView: View {
 
             if let goal = data.goalKilograms {
                 RuleMark(y: .value("Goal", goal))
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(themeManager.palette.warning)
                     .lineStyle(.init(dash: [5, 5]))
                     .annotation(position: .top, alignment: .trailing) {
                         Text("Goal")
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(themeManager.palette.warning)
                     }
             }
         }
@@ -121,10 +122,14 @@ struct TrendChartView: View {
     }
 
     private var changeColour: Color {
-        data.snapshot.changeDirection == .worsening ? .red : .green
+        data.snapshot.changeDirection == .worsening
+            ? themeManager.palette.error
+            : themeManager.palette.success
     }
 
     private var projectionColour: Color {
-        data.snapshot.projectionDirection == .worsening ? .orange : .green
+        data.snapshot.projectionDirection == .worsening
+            ? themeManager.palette.warning
+            : themeManager.palette.success
     }
 }

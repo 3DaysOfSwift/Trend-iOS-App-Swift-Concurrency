@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ProgressView: View {
     @State private var viewModel = ProgressViewModel()
+    @Environment(ThemeManager.self) private var themeManager
 
     var body: some View {
         @Bindable var viewModel = viewModel
@@ -35,7 +36,7 @@ struct ProgressView: View {
                 }
                 .padding()
             }
-            .background(Color.trendBackground)
+            .background(themeManager.palette.background)
             .navigationTitle("Your Projection")
         }
     }
@@ -82,7 +83,7 @@ struct ProgressView: View {
             } else {
                 Image(systemName: "sparkles")
                     .font(.system(size: 34))
-                    .foregroundStyle(Color.trendTeal)
+                    .foregroundStyle(themeManager.palette.accent)
                 Text("Your projection is warming up")
                     .font(.title2.bold())
                 Text(snapshot.projectionUnavailableMessage)
@@ -95,7 +96,7 @@ struct ProgressView: View {
         .padding(24)
         .background(
             LinearGradient(
-                colors: [Color.trendTeal.opacity(0.14), Color.trendSurface],
+                colors: [themeManager.palette.accent.opacity(0.14), themeManager.palette.surface],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),
@@ -104,7 +105,9 @@ struct ProgressView: View {
     }
 
     private func projectionColour(snapshot: ProgressSnapshot) -> Color {
-        snapshot.projectionDirection == .worsening ? .orange : .green
+        snapshot.projectionDirection == .worsening
+            ? themeManager.palette.warning
+            : themeManager.palette.success
     }
 
     private func projectionSymbol(snapshot: ProgressSnapshot) -> String {
@@ -133,7 +136,7 @@ struct ProgressView: View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Your progress, in words", systemImage: "quote.bubble.fill")
                 .font(.headline)
-                .foregroundStyle(Color.trendTeal)
+                .foregroundStyle(themeManager.palette.accent)
 
             Text(snapshot.commentary)
                 .font(.body)
@@ -147,7 +150,7 @@ struct ProgressView: View {
         .padding(20)
         .background(
             LinearGradient(
-                colors: [Color.trendTeal.opacity(0.13), Color.trendSurface],
+                colors: [themeManager.palette.accent.opacity(0.13), themeManager.palette.surface],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             ),

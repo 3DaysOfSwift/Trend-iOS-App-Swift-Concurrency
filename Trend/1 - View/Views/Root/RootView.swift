@@ -4,6 +4,7 @@ import SwiftUI
 
 struct RootView: View {
     @State private var viewModel = RootViewModel()
+    @Environment(ThemeManager.self) private var themeManager
 
     var body: some View {
         TabView {
@@ -16,8 +17,8 @@ struct RootView: View {
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
         }
-        .background(Color.trendBackground.ignoresSafeArea())
-        .tint(Color.trendTeal)
+        .background(themeManager.palette.background.ignoresSafeArea())
+        .tint(themeManager.palette.accent)
         .toolbarBackground(.ultraThinMaterial, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
         .task { await viewModel.start() }

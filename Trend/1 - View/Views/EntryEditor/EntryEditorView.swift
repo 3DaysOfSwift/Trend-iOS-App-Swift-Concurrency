@@ -5,6 +5,7 @@ import SwiftUI
 struct EntryEditorView: View {
     @State private var viewModel: EntryEditorViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(ThemeManager.self) private var themeManager
     @FocusState private var weightIsFocused: Bool
     @State private var showsDetails = false
 
@@ -31,7 +32,7 @@ struct EntryEditorView: View {
                     .scrollIndicators(.hidden)
                 }
             }
-            .background(Color.trendBackground)
+            .background(themeManager.palette.background)
             .navigationTitle(viewModel.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -100,7 +101,7 @@ struct EntryEditorView: View {
                 RoundedRectangle(cornerRadius: 30, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [Color(red: 0.02, green: 0.20, blue: 0.22), Color(red: 0.02, green: 0.38, blue: 0.35)],
+                            colors: [themeManager.palette.weightDisplayTop, themeManager.palette.weightDisplayBottom],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -110,7 +111,7 @@ struct EntryEditorView: View {
                             .stroke(.white.opacity(0.14), lineWidth: 1)
                             .padding(1)
                     }
-                    .shadow(color: Color.trendTeal.opacity(0.26), radius: 24, y: 12)
+                    .shadow(color: themeManager.palette.accent.opacity(0.26), radius: 24, y: 12)
             }
             .contentShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
             .onTapGesture { weightIsFocused = true }
@@ -147,9 +148,9 @@ struct EntryEditorView: View {
     private func errorBanner(_ message: String) -> some View {
         Label(message, systemImage: "exclamationmark.circle.fill")
             .font(.subheadline)
-            .foregroundStyle(.red)
+            .foregroundStyle(themeManager.palette.error)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
-            .background(.red.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
+            .background(themeManager.palette.error.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
     }
 }

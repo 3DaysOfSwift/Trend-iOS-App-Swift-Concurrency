@@ -4,16 +4,18 @@ import SwiftUI
 
 struct TodayView: View {
     @State private var viewModel = TodayViewModel()
+    @Environment(ThemeManager.self) private var themeManager
     @FocusState private var weightIsFocused: Bool
     @State private var showsDetails = false
     @State private var showsResult = false
     @State private var entryCardOffset: CGFloat = 0
     @State private var entryCardOpacity = 1.0
+    @State private var themeChangeFeedback = 0
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.trendBackground
+                themeManager.palette.background
                     .ignoresSafeArea()
 
                 if showsResult, let result = viewModel.submittedResult {
@@ -32,6 +34,7 @@ struct TodayView: View {
             }
         }
         .task { await focusWeightField() }
+        .sensoryFeedback(.selection, trigger: themeChangeFeedback)
     }
 
     private var streakBar: some View {
@@ -75,29 +78,29 @@ struct TodayView: View {
         switch day.result {
         case .positive:
             Circle()
-                .fill(Color.green.gradient)
+                .fill(themeManager.palette.success.gradient)
                 .overlay {
                     Image(systemName: "checkmark")
                         .font(.system(size: 11, weight: .black))
                         .foregroundStyle(.white)
                 }
-                .shadow(color: .green.opacity(0.22), radius: 4, y: 2)
+                .shadow(color: themeManager.palette.success.opacity(0.22), radius: 4, y: 2)
         case .needsAttention:
             Circle()
-                .fill(Color.red.gradient)
+                .fill(themeManager.palette.error.gradient)
                 .overlay {
                     Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .black))
                         .foregroundStyle(.white)
                 }
-                .shadow(color: .red.opacity(0.22), radius: 4, y: 2)
+                .shadow(color: themeManager.palette.error.opacity(0.22), radius: 4, y: 2)
         case .noCheckIn:
             Circle()
                 .fill(Color.secondary.opacity(0.09))
                 .overlay {
                     Circle()
                         .stroke(
-                            day.isToday ? Color.trendTeal : Color.secondary.opacity(0.28),
+                            day.isToday ? themeManager.palette.accent : Color.secondary.opacity(0.28),
                             lineWidth: day.isToday ? 2 : 1
                         )
                 }
@@ -146,10 +149,10 @@ struct TodayView: View {
                 if let message = viewModel.errorMessage {
                     Label(message, systemImage: "exclamationmark.circle.fill")
                         .font(.subheadline)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(themeManager.palette.error)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding()
-                        .background(.red.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
+                        .background(themeManager.palette.error.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
                 }
             }
             .padding(.horizontal, 20)
@@ -202,8 +205,8 @@ struct TodayView: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.02, green: 0.20, blue: 0.22),
-                            Color(red: 0.02, green: 0.38, blue: 0.35)
+                            themeManager.palette.weightDisplayTop,
+                            themeManager.palette.weightDisplayBottom
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -214,7 +217,7 @@ struct TodayView: View {
                         .stroke(.white.opacity(0.14), lineWidth: 1)
                         .padding(1)
                 }
-                .shadow(color: Color.trendTeal.opacity(0.26), radius: 24, y: 12)
+                .shadow(color: themeManager.palette.accent.opacity(0.26), radius: 24, y: 12)
         }
         .overlay(alignment: .bottomTrailing) {
             Button(action: saveWeight) {
@@ -224,11 +227,11 @@ struct TodayView: View {
                         .shadow(color: .black.opacity(0.22), radius: 10, y: 5)
 
                     if viewModel.isSaving {
-                        SwiftUI.ProgressView().tint(Color.trendTeal)
+                        SwiftUI.ProgressView().tint(themeManager.palette.accent)
                     } else {
                         Image(systemName: "plus")
                             .font(.system(size: 24, weight: .bold))
-                            .foregroundStyle(Color.trendTeal)
+                            .foregroundStyle(themeManager.palette.accent)
                     }
                 }
                 .frame(width: 58, height: 58)
@@ -302,7 +305,7 @@ struct TodayView: View {
 
     private func verdict(_ assessment: DailyTrendAssessment) -> some View {
         let isPositive = assessment.verdict == .positive
-        let colour: Color = isPositive ? .green : .red
+        let colour = isPositive ? themeManager.palette.success : themeManager.palette.error
 
         return VStack(spacing: 14) {
             ZStack {
@@ -315,6 +318,12 @@ struct TodayView: View {
             }
             .frame(width: 172, height: 172)
             .accessibilityHidden(true)
+            .onTapGesture(count: 2) {
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    themeManager.selectNextTheme()
+                }
+                themeChangeFeedback += 1
+            }
 
             Text(assessment.title)
                 .font(.largeTitle.bold())
@@ -394,12 +403,12 @@ struct TodayView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
         .background(
-            Color.green.opacity(0.12),
+            themeManager.palette.success.opacity(0.12),
             in: RoundedRectangle(cornerRadius: 24, style: .continuous)
         )
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color.green.opacity(0.32), lineWidth: 1)
+                .stroke(themeManager.palette.success.opacity(0.32), lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
     }

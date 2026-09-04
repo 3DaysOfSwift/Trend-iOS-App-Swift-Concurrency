@@ -5,13 +5,27 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
     @State private var viewModel = SettingsViewModel()
+    @Environment(ThemeManager.self) private var themeManager
     @FocusState private var goalFocused: Bool
 
     var body: some View {
         @Bindable var viewModel = viewModel
+        @Bindable var themeManager = themeManager
 
         NavigationStack {
             Form {
+                Section("Appearance") {
+                    Picker("Theme", selection: $themeManager.selectedTheme) {
+                        ForEach(AppColourTheme.allCases) { theme in
+                            Label(theme.name, systemImage: theme.symbol)
+                                .tag(theme)
+                        }
+                    }
+
+                    Text(themeManager.selectedTheme.description)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 Section("Units") {
                     Picker("Weight", selection: $viewModel.unit) {
                         ForEach(WeightUnit.allCases) {
