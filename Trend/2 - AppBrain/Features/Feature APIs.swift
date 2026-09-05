@@ -80,7 +80,9 @@ protocol HabitsFeature: AnyObject {
     func refresh() async
     func selectTemplates(_ templateIDs: Set<String>) async throws
     func record(_ value: Double, for habitID: String, on date: Date) async throws
+    func recordOccurrence(_ value: Double, for habitID: String, on date: Date) async throws
     func removeOne(for habitID: String, on date: Date) async throws
+    func clearEntry(for habitID: String, on date: Date) async throws
     func entry(for habitID: String, on date: Date) -> HabitEntry?
     func weekSnapshot(for habitID: String, on date: Date) -> HabitWeekSnapshot
     func lifetimeSummary(for habitID: String) -> HabitLifetimeSummary

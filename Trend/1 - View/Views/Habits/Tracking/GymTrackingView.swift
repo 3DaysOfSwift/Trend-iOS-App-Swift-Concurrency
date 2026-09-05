@@ -23,6 +23,15 @@ struct GymTrackingView: View {
             Text("Finish a set. Add the reps. Keep moving.")
                 .foregroundStyle(.secondary)
             Spacer()
+            if viewModel.hasCheckedInToday {
+                Button("Clear today’s repetitions") {
+                    Task { await viewModel.clearToday() }
+                }
+                .buttonStyle(.plain)
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 24)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(themeManager.palette.background.ignoresSafeArea())

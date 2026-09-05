@@ -21,7 +21,9 @@ final class HabitsManager: HabitsFeature {
     func refresh() async {
         do {
             let store = try await repository.load()
-            habits = store.habits
+            // Templates define which trackers the current app supports. Keep
+            // retired tracker history in storage, but do not present it.
+            habits = store.habits.filter { HabitTemplate(rawValue: $0.id) != nil }
             entries = store.entries
             errorMessage = nil
         } catch {
@@ -47,10 +49,42 @@ final class HabitsManager: HabitsFeature {
         else {
             throw HabitError.invalidValue
         }
+        let existingEntry = entry(for: habitID, on: date)
         var updatedEntries = entries.filter {
             !($0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: date))
         }
-        updatedEntries.append(HabitEntry(id: UUID(), habitID: habitID, date: date, value: value))
+        updatedEntries.append(HabitEntry(
+            id: UUID(),
+            habitID: habitID,
+            date: date,
+            value: value,
+            occurrenceCount: existingEntry?.occurrenceCount
+        ))
+        updatedEntries.sort { $0.date > $1.date }
+        try await persist(habits: habits, entries: updatedEntries)
+    }
+
+    func recordOccurrence(_ value: Double, for habitID: String, on date: Date) async throws {
+        guard
+            let habit = habits.first(where: { $0.id == habitID }),
+            value.isFinite,
+            value > 0,
+            isValid(value, for: habit.valueType)
+        else {
+            throw HabitError.invalidValue
+        }
+
+        let existingEntry = entry(for: habitID, on: date)
+        var updatedEntries = entries.filter {
+            !($0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: date))
+        }
+        updatedEntries.append(HabitEntry(
+            id: UUID(),
+            habitID: habitID,
+            date: date,
+            value: (existingEntry?.value ?? 0) + value,
+            occurrenceCount: (existingEntry?.occurrenceCount ?? 0) + 1
+        ))
         updatedEntries.sort { $0.date > $1.date }
         try await persist(habits: habits, entries: updatedEntries)
     }
@@ -64,6 +98,14 @@ final class HabitsManager: HabitsFeature {
             let updatedEntries = entries.filter { $0.id != existingEntry.id }
             try await persist(habits: habits, entries: updatedEntries)
         }
+    }
+
+    func clearEntry(for habitID: String, on date: Date) async throws {
+        let updatedEntries = entries.filter {
+            !($0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: date))
+        }
+        guard updatedEntries.count != entries.count else { return }
+        try await persist(habits: habits, entries: updatedEntries)
     }
 
     func entry(for habitID: String, on date: Date) -> HabitEntry? {

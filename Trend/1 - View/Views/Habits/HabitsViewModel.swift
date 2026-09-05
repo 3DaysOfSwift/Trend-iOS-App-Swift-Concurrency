@@ -34,7 +34,11 @@ final class HabitsViewModel {
     }
     var productPrice: String { purchaseFeature.habitsProduct?.displayPrice ?? "One-time purchase" }
 
-    func purchaseHabits() async { await purchaseFeature.purchaseHabits() }
+    func purchaseHabits() async -> Bool {
+        let wasAlreadyUnlocked = purchaseFeature.hasUnlockedHabits
+        await purchaseFeature.purchaseHabits()
+        return !wasAlreadyUnlocked && purchaseFeature.hasUnlockedHabits
+    }
     func restorePurchases() async { await purchaseFeature.restorePurchases() }
     func dismissPurchaseMessage() { purchaseFeature.dismissMessage() }
 

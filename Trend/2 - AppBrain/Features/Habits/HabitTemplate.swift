@@ -7,7 +7,6 @@ enum HabitTemplate: String, CaseIterable, Identifiable, Sendable {
     case wakeTime
     case gymRepetitions
     case runningDistance
-    case mood
     case sleep
     case water
     case alcohol
@@ -24,8 +23,6 @@ enum HabitTemplate: String, CaseIterable, Identifiable, Sendable {
             Habit(id: id, name: "Gym repetitions", prompt: "How many repetitions today?", unit: "reps", valueType: .number, desiredDirection: .higher, symbol: "dumbbell.fill")
         case .runningDistance:
             Habit(id: id, name: "Running distance", prompt: "How far did you run today?", unit: "km", valueType: .number, desiredDirection: .higher, symbol: "figure.run")
-        case .mood:
-            Habit(id: id, name: "Mood", prompt: "How was your mood today?", unit: "out of 5", valueType: .rating, desiredDirection: .higher, symbol: "face.smiling.fill")
         case .sleep:
             Habit(id: id, name: "Sleep", prompt: "How many hours did you sleep?", unit: "hours", valueType: .number, desiredDirection: .personalTarget, symbol: "bed.double.fill")
         case .water:

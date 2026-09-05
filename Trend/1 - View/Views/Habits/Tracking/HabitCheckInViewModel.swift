@@ -31,6 +31,11 @@ final class HabitCheckInViewModel {
         habitsFeature.entry(for: habit.id, on: currentDate()) != nil
     }
 
+    var todayOccurrenceCount: Int {
+        guard let entry = habitsFeature.entry(for: habit.id, on: currentDate()) else { return 0 }
+        return entry.occurrenceCount ?? 1
+    }
+
     var weekSnapshot: HabitWeekSnapshot {
         habitsFeature.weekSnapshot(for: habit.id, on: currentDate())
     }
@@ -45,6 +50,26 @@ final class HabitCheckInViewModel {
 
     func increment(by amount: Double = 1) async {
         await record(todayValue + amount)
+    }
+
+    func recordOccurrence(_ value: Double) async -> Bool {
+        do {
+            try await habitsFeature.recordOccurrence(value, for: habit.id, on: currentDate())
+            errorMessage = nil
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func clearToday() async {
+        do {
+            try await habitsFeature.clearEntry(for: habit.id, on: currentDate())
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     func removeOne() async {
@@ -66,7 +91,14 @@ final class HabitCheckInViewModel {
     }
 
     var timeForPicker: Date {
-        guard hasCheckedInToday else { return currentDate() }
+        guard hasCheckedInToday else {
+            return Calendar.current.date(
+                bySettingHour: 7,
+                minute: 0,
+                second: 0,
+                of: currentDate()
+            ) ?? currentDate()
+        }
         let hour = Int(todayValue) / 60
         let minute = Int(todayValue) % 60
         return Calendar.current.date(

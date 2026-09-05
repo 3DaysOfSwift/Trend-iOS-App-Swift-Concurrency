@@ -5,6 +5,10 @@ import SwiftUI
 struct WaterTrackingView: View {
     @State private var viewModel = HabitCheckInViewModel(template: .water)
     @Environment(ThemeManager.self) private var themeManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isDroppingWater = false
+    @State private var dropletOffset: CGFloat = 0
+    @State private var feedback = 0
 
     var body: some View {
         VStack(spacing: 28) {
@@ -14,15 +18,20 @@ struct WaterTrackingView: View {
                 Image(systemName: "drop.fill")
                     .font(.system(size: 92))
                     .foregroundStyle(.cyan.gradient)
+                    .offset(y: dropletOffset)
+                    .shadow(color: .cyan.opacity(isDroppingWater ? 0.35 : 0), radius: 16, y: 10)
             }
             .frame(width: 220, height: 220)
+            .clipped()
             Text("\(Int(viewModel.todayValue)) glasses")
                 .font(.largeTitle.bold().monospacedDigit())
             Button("Another glass", systemImage: "plus.circle.fill") {
-                Task { await viewModel.increment() }
+                dropWater()
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
+            .opacity(isDroppingWater ? 0 : 1)
+            .allowsHitTesting(!isDroppingWater)
             Text("A small pause to notice what you give your body.")
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -34,8 +43,35 @@ struct WaterTrackingView: View {
         .navigationTitle("Water")
         .navigationBarTitleDisplayMode(.inline)
         .habitErrorAlert(viewModel)
+        .sensoryFeedback(.success, trigger: feedback)
         .safeAreaInset(edge: .top, spacing: 0) {
             HabitDayStreakBanner(data: viewModel.weekSnapshot, symbol: viewModel.habit.symbol)
+        }
+    }
+
+    private func dropWater() {
+        guard !isDroppingWater else { return }
+        isDroppingWater = true
+
+        var resetTransaction = Transaction()
+        resetTransaction.disablesAnimations = true
+        withTransaction(resetTransaction) {
+            dropletOffset = reduceMotion ? -24 : -190
+        }
+
+        Task {
+            await Task.yield()
+            withAnimation(reduceMotion ? .easeOut(duration: 0.25) : .bouncy(duration: 0.8, extraBounce: 0.12)) {
+                dropletOffset = 0
+            }
+
+            await viewModel.increment()
+            try? await Task.sleep(for: reduceMotion ? .milliseconds(250) : .milliseconds(800))
+            feedback += 1
+
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isDroppingWater = false
+            }
         }
     }
 }

@@ -6,6 +6,20 @@ import Testing
 
 @MainActor
 struct HabitCheckInViewModelTests {
+    @Test func newWakeTimeStartsAtSevenInTheMorning() async throws {
+        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let date = Date(timeIntervalSince1970: 1_788_480_000)
+        try await manager.selectTemplates([HabitTemplate.wakeTime.id])
+        let viewModel = HabitCheckInViewModel(
+            template: .wakeTime,
+            habitsFeature: manager,
+            currentDate: { date }
+        )
+
+        #expect(Calendar.current.component(.hour, from: viewModel.timeForPicker) == 7)
+        #expect(Calendar.current.component(.minute, from: viewModel.timeForPicker) == 0)
+    }
+
     @Test func incrementAddsToTodaysExistingValue() async throws {
         let manager = HabitsManager(repository: InMemoryHabitRepository())
         let date = Date(timeIntervalSince1970: 1_788_480_000)

@@ -6,6 +6,17 @@ import Testing
 
 @MainActor
 struct HabitsViewModelTests {
+    @Test func purchaseReportsOnlyANewUnlockAsNew() async {
+        let purchaseManager = PurchaseManager(client: InMemoryPurchaseClient())
+        let viewModel = HabitsViewModel(
+            habitsFeature: HabitsManager(repository: InMemoryHabitRepository()),
+            purchaseFeature: purchaseManager
+        )
+
+        #expect(await viewModel.purchaseHabits())
+        #expect(!(await viewModel.purchaseHabits()))
+    }
+
     @Test func dashboardExposesTodaysRecordedSummary() async throws {
         let manager = HabitsManager(repository: InMemoryHabitRepository())
         let date = Date(timeIntervalSince1970: 1_788_480_000)

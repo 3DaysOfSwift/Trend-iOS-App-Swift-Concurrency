@@ -9,9 +9,9 @@ struct HabitsManagerTests {
     @Test func selectionUsesTemplatesAsTheActiveHabitList() async throws {
         let manager = HabitsManager(repository: InMemoryHabitRepository())
 
-        try await manager.selectTemplates([HabitTemplate.coffee.id, HabitTemplate.mood.id])
+        try await manager.selectTemplates([HabitTemplate.coffee.id, HabitTemplate.water.id])
 
-        #expect(manager.habits.map(\.id) == [HabitTemplate.coffee.id, HabitTemplate.mood.id])
+        #expect(manager.habits.map(\.id) == [HabitTemplate.coffee.id, HabitTemplate.water.id])
     }
 
     @Test func secondCheckInOnTheSameDayReplacesTheFirst() async throws {
@@ -38,13 +38,35 @@ struct HabitsManagerTests {
         #expect(manager.entry(for: HabitTemplate.water.id, on: date)?.value == 6)
     }
 
-    @Test func ratingRejectsValuesOutsideItsFivePointScale() async throws {
+    @Test func separateRunsAccumulateDistanceAndOccurrenceCount() async throws {
         let manager = HabitsManager(repository: InMemoryHabitRepository())
-        try await manager.selectTemplates([HabitTemplate.mood.id])
+        let date = Date(timeIntervalSince1970: 1_788_480_000)
+        try await manager.selectTemplates([HabitTemplate.runningDistance.id])
 
-        await #expect(throws: HabitError.self) {
-            try await manager.record(6, for: HabitTemplate.mood.id, on: .now)
-        }
+        try await manager.recordOccurrence(3, for: HabitTemplate.runningDistance.id, on: date)
+        try await manager.recordOccurrence(2, for: HabitTemplate.runningDistance.id, on: date)
+
+        let entry = manager.entry(for: HabitTemplate.runningDistance.id, on: date)
+        #expect(entry?.value == 5)
+        #expect(entry?.occurrenceCount == 2)
+    }
+
+    @Test func clearingTodayRemovesTheHabitEntry() async throws {
+        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let date = Date(timeIntervalSince1970: 1_788_480_000)
+        try await manager.selectTemplates([HabitTemplate.gymRepetitions.id])
+        try await manager.record(20, for: HabitTemplate.gymRepetitions.id, on: date)
+
+        try await manager.clearEntry(for: HabitTemplate.gymRepetitions.id, on: date)
+
+        #expect(manager.entry(for: HabitTemplate.gymRepetitions.id, on: date) == nil)
+    }
+
+    @Test func distanceUnitsConvertToAndFromCanonicalKilometres() {
+        let kilometres = RunningDistanceUnit.miles.kilometres(from: 1)
+
+        #expect(abs(kilometres - 1.609_344) < 0.000_001)
+        #expect(abs(RunningDistanceUnit.miles.value(fromKilometres: kilometres) - 1) < 0.000_001)
     }
 
     @Test func removingOneDecrementsThenRemovesTheDailyEntry() async throws {
