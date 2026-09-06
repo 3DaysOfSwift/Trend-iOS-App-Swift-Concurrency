@@ -443,3 +443,68 @@ checking and the regression suite pass. Record manual verification and any gaps.
 Update the architecture and feature report to describe Observation, then commit
 this modernisation separately from the completed migration. Do not claim a
 performance improvement without measurements.
+
+## Pass Thirteen: Keep the Main Actor Available for UI Work
+
+> Keep UI-observed state and short presentation-facing coordination on the Main
+> Actor. Give expensive computation, blocking operations, and timing-sensitive
+> execution an appropriate owner outside it.
+
+This is an evaluation followed by implementation and verification, not a
+review-only pass. Revisit execution ownership after the preceding changes,
+including presentation calculations as well as Model work. Do not interpret
+the rule as moving every async function off-main: suspension releases the
+executor, while synchronous work between suspension points still needs an
+appropriate execution owner.
+
+### Evaluate and Plan
+
+Trace startup and important interactions through Views, ViewModels, Feature
+Managers, and their collaborators. Identify expensive synchronous sections,
+blocking APIs, repeated allocations, excessive observable mutations, and
+timing-sensitive work that depends on UI delivery. Check actual actor isolation
+and the project's compiler settings rather than inferring execution from
+`Task` or `async` syntax.
+
+For each finding, record the operation, current owner and executor, evidence,
+proposed owner, behaviour risk, and verification plan in the migration ledger.
+Separate measured delays from suspected bottlenecks. Prioritise concrete
+findings; reuse earlier profiling and avoid speculative layers or parallelism.
+
+### Execute the Plan
+
+Implement the scoped refinements in small checkpoints. Keep observable state
+and short coordination on the Main Actor. Keep business decisions with their
+Feature Manager, delegating expensive execution to its owned collaborators.
+Presentation-only calculations may use a renderer owned by the ViewModel;
+moving computation off-main does not make it business logic.
+
+Use native asynchronous APIs where available, an actor or suitable computation
+executor for isolated computation, and an appropriate execution boundary for
+unavoidable blocking APIs. An actor is not a dedicated thread, and a detached
+Task does not make blocking work cooperative. For real-time audio, prefer the
+audio framework's scheduling facilities; neither UI ticks nor cooperative Task
+wake-ups guarantee audio deadlines.
+
+Transfer safe value snapshots, preserve operation order and durable work, and
+reject cancelled or stale results before publishing them. Bound work in flight
+so UI polling cannot build a backlog. Do not add `Task.yield()` as a substitute
+for execution ownership. Preserve visible failure and retry states, and agree
+on any product-behaviour changes before implementing them.
+
+### Verify and Report
+
+Run complete concurrency checking and affected regression tests at each
+checkpoint. Verify execution boundaries, cancellation, replacement, ordering,
+and stale-result protection. Exercise startup, animation, and feature activity
+together; for timing-sensitive features, verify live transitions and sustained
+behaviour, not just isolated state changes. Passing an offline audio test does
+not establish real-time audible smoothness.
+
+**Completion gate:** findings have been implemented and verified, or explicitly
+agreed as deferred with reasons; execution ownership is documented; builds and
+regression tests pass; and affected user flows have manual approval. Record
+before/after measurements where available and leave unavailable runtime checks
+explicitly pending. Update the feature behaviour report and recommend a separate
+Git checkpoint. Do not claim that all Model work is off-main, that the main
+thread never blocks, or that performance improved without supporting evidence.
