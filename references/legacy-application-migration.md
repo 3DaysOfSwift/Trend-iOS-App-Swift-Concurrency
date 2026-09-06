@@ -605,3 +605,53 @@ have manual approval. Update the concurrency inventory, ledger, and feature
 behaviour report with evidence and remaining verification gaps. A clean review
 may require no implementation changes. Passing tests alone does not prove the
 absence of every concurrency defect.
+
+## Pass Sixteen: Review and Refine the Finished Architecture
+
+Evaluate the completed application against the canonical AppBrain template:
+are its files, state, decisions, and execution responsibilities owned by the
+correct types and layers? Review the implementation as it exists now, not just
+the folder diagram or the intentions recorded during migration.
+
+Check these boundaries explicitly:
+
+- **Feature commands:** validation and invariants belong to the Feature Manager,
+  not to assumptions about UI controls. A command must keep feature state,
+  persistence, and active execution consistent wherever it is called from.
+  Check alternate commands that change the same underlying configuration for
+  missing updates or different validation.
+- **State ownership:** expose observable state for reading without allowing
+  callers holding the concrete manager to bypass its commands. Use restricted
+  setters where appropriate and keep internal bookkeeping private. Tests should
+  exercise feature commands rather than depend on unrestricted mutation.
+- **ViewModel dependencies:** each unique screen has its own adjacent ViewModel,
+  conventionally named viewModel in the View. Its initializer accepts the narrow
+  feature capabilities it needs, defaulting to AppBrain.shared, rather than
+  accepting the entire AppBrain merely to extract one feature.
+- **UI and Model separation:** extract repeated domain interpretation from
+  ViewModels into simple feature queries. Keep layout, formatting, highlighting,
+  animation, and rendering in presentation. Off-main execution does not turn
+  presentation work into business logic.
+- **Folder and type ownership:** feature-specific domain values, repositories,
+  and execution collaborators remain beneath their owning feature. AppBrain
+  assembles and exposes features; it does not absorb their rules. Test grouping
+  and architecture diagrams must reflect the actual boundaries.
+
+Record concrete findings, their behavioural consequences, intended owners,
+and verification. Refine in small steps, prioritising inconsistent commands,
+then state encapsulation, dependency boundaries, and duplicated interpretation.
+Preserve the agreed product behaviour; explicitly agree on intentional changes
+rather than concealing them as architectural cleanup.
+
+Apply KISS: keep cohesive features together, add no manager or wrapper merely
+to shorten a file, and retain working boundaries. Add focused tests for corrected
+invariants and alternate command paths. Update test construction to use the
+same narrow feature boundaries as production, while retaining dedicated
+AppBrain composition tests.
+
+**Completion gate:** the canonical Review Checklist has evidence-backed answers;
+findings are corrected or explicitly approved for deferral; builds, concurrency
+checks, and relevant regression tests pass; and affected flows have manual
+approval. Update folder maps, the ledger, and the feature behaviour report.
+A clean review requires no code changes. Do not reopen a sound architecture
+solely to create another iteration.
