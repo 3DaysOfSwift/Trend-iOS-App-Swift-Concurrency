@@ -17,7 +17,7 @@ final class AppBrain {
     let habitsFeature: any HabitsFeature
     let purchaseFeature: any PurchaseFeature
     private let dailyTips: DailyTipManager
-    private var hasStarted: Bool
+    private var applicationLaunchTask: Task<Void, Never>?
 
     init(
         weightEntries: any WeightEntryFeature,
@@ -33,12 +33,15 @@ final class AppBrain {
         self.habitsFeature = habitsFeature
         self.purchaseFeature = purchaseFeature
         self.dailyTips = dailyTips
-        self.hasStarted = false
     }
 
     /// Produces the live, non-test AppBrain and assembles all production
     /// dependencies in one visible place.
     static func live() -> AppBrain {
+        // A function, rather than a stored Date, keeps production time moving
+        // while allowing tests to provide a fixed clock.
+        let currentDate: @MainActor () -> Date = { .now }
+
         let repository = CloudKitWeightRepository()
         let weightLog = WeightLogManager(repository: repository)
         let progress = ProgressTracker()
@@ -47,12 +50,11 @@ final class AppBrain {
         let dailyTips = DailyTipManager()
         let dailyStreak = DailyStreakManager(trend: dailyTrend)
         let backupFiles = BackupFileManager()
-        let habits = HabitsManager(repository: FileHabitRepository())
+        let habits = HabitsManager(
+            repository: CloudKitHabitRepository(),
+            currentDate: currentDate
+        )
         let purchases = PurchaseManager(client: StoreKitPurchaseClient())
-
-        // A function, rather than a stored Date, keeps production time moving
-        // while allowing tests to provide a fixed clock.
-        let currentDate: @MainActor () -> Date = { .now }
 
         let weightEntries = WeightEntryManager(
             weightLog: weightLog,
@@ -85,29 +87,44 @@ final class AppBrain {
         )
     }
 
-    /// Starts the shared application graph once. Startup belongs here because it
-    /// initializes the application as a whole rather than one individual feature.
-    func start() async {
-        guard !hasStarted else { return }
-        hasStarted = true
-        dailyTips.beginLaunch()
-
-        let cloudStatusTask = Task { @MainActor [settingsFeature] in
-            await settingsFeature.refreshCloudStatus()
-        }
-        let weightEntriesTask = Task { @MainActor [weightEntries] in
-            await weightEntries.refresh()
-        }
-        let habitsTask = Task { @MainActor [habitsFeature] in
-            await habitsFeature.refresh()
-        }
-        let purchasesTask = Task { @MainActor [purchaseFeature] in
-            await purchaseFeature.start()
+    /// Responds to the application completing its launch. AppBrain refreshes
+    /// feature data and installs long-lived observers in one central place.
+    /// Every scene may call this safely; all callers await the same work.
+    func applicationDidFinishLaunching() async {
+        if let applicationLaunchTask {
+            await applicationLaunchTask.value
+            return
         }
 
-        await cloudStatusTask.value
-        await weightEntriesTask.value
-        await habitsTask.value
-        await purchasesTask.value
+        let task = Task { @MainActor [
+            dailyTips,
+            settingsFeature,
+            weightEntries,
+            habitsFeature,
+            purchaseFeature
+        ] in
+            dailyTips.refresh() // requires immediate execution - no async behaviour required
+            purchaseFeature.observeTransactionUpdates()
+
+            let cloudStatusTask = Task { @MainActor in
+                await settingsFeature.refreshCloudStatus()
+            }
+            let weightEntriesTask = Task { @MainActor in
+                await weightEntries.refresh()
+            }
+            let habitsTask = Task { @MainActor in
+                await habitsFeature.refresh()
+            }
+            let purchasesTask = Task { @MainActor in
+                await purchaseFeature.refreshStoreState()
+            }
+
+            await cloudStatusTask.value
+            await weightEntriesTask.value
+            await habitsTask.value
+            await purchasesTask.value
+        }
+        applicationLaunchTask = task
+        await task.value
     }
 }

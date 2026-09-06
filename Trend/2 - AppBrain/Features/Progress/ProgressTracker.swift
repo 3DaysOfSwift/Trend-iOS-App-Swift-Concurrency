@@ -16,19 +16,33 @@ final class ProgressTracker {
     init(insights: ProgressInsights = ProgressInsights()) { self.insights = insights }
 
     func refresh(entries: [WeightEntry], goalKilograms: Double? = nil) async {
+        refreshTask?.cancel()
         isLoading = true
-        snapshot = await insights.prepare(entries: entries, range: range, goalKilograms: goalKilograms)
-        isLoading = false
+        let task = makeRefreshTask(entries: entries, goalKilograms: goalKilograms)
+        refreshTask = task
+        await task.value
     }
 
     func select(_ range: ProgressRange, entries: [WeightEntry], goalKilograms: Double? = nil) {
         self.range = range
         isLoading = true
         refreshTask?.cancel()
-        refreshTask = Task { [insights] in
+        refreshTask = makeRefreshTask(entries: entries, goalKilograms: goalKilograms)
+    }
+
+    private func makeRefreshTask(
+        entries: [WeightEntry],
+        goalKilograms: Double?
+    ) -> Task<Void, Never> {
+        let selectedRange = range
+        return Task { [insights] in
             await Task.yield()
             guard !Task.isCancelled else { return }
-            let prepared = await insights.prepare(entries: entries, range: range, goalKilograms: goalKilograms)
+            let prepared = await insights.prepare(
+                entries: entries,
+                range: selectedRange,
+                goalKilograms: goalKilograms
+            )
             guard !Task.isCancelled else { return }
             snapshot = prepared
             isLoading = false

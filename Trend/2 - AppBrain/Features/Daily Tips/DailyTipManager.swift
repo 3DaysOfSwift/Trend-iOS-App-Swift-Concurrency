@@ -29,7 +29,7 @@ final class DailyTipManager {
         static let remainingPoisonPointIDs = "remainingPoisonPointIDs"
         static let remainingEvolutionPointIDs = "remainingEvolutionPointIDs"
         static let remainingFastingPointIDs = "remainingFastingPointIDs"
-        static let launchCount = "dailyContentLaunchCount"
+        static let refreshCount = "dailyContentRefreshCount"
     }
 
     private let defaults: UserDefaults
@@ -67,10 +67,11 @@ final class DailyTipManager {
         calendar.component(.weekday, from: date) == 2 ? .standard : nil
     }
 
-    func beginLaunch() {
-        let launchCount = defaults.integer(forKey: Key.launchCount) + 1
-        defaults.set(launchCount, forKey: Key.launchCount)
-        currentFastingSuggestion = launchCount.isMultiple(of: 10)
+    /// Selects the optional fasting content for the current refresh cycle.
+    func refresh() {
+        let refreshCount = defaults.integer(forKey: Key.refreshCount) + 1
+        defaults.set(refreshCount, forKey: Key.refreshCount)
+        currentFastingSuggestion = refreshCount.isMultiple(of: 10)
             ? draw(from: WellnessTip.fastingCatalog, key: Key.remainingFastingPointIDs)
             : nil
     }

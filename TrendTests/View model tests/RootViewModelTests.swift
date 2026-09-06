@@ -6,13 +6,13 @@ import Testing
 
 @MainActor
 struct RootViewModelTests {
-    @Test func startLoadsApplicationOnlyOnce() async {
+    @Test func applicationLaunchLoadsApplicationOnlyOnce() async {
         let repository = InMemoryWeightRepository()
         let brain = TestAppBrainFactory.make(repository: repository)
         let viewModel = RootViewModel(appBrain: brain)
 
-        await viewModel.start()
-        await viewModel.start()
+        await viewModel.applicationDidFinishLaunching()
+        await viewModel.applicationDidFinishLaunching()
 
         #expect(await repository.loadCallCount == 1)
     }

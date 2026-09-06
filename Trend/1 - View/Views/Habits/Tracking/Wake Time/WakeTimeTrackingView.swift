@@ -3,7 +3,7 @@
 import SwiftUI
 
 struct WakeTimeTrackingView: View {
-    @State private var viewModel = HabitCheckInViewModel(template: .wakeTime)
+    @State private var viewModel = WakeTimeTrackingViewModel()
     @Environment(ThemeManager.self) private var themeManager
     @State private var selectedTime = Date.now
     @State private var isEditing = false
@@ -51,7 +51,7 @@ struct WakeTimeTrackingView: View {
         .background(themeManager.palette.background.ignoresSafeArea())
         .navigationTitle("Wake Time")
         .navigationBarTitleDisplayMode(.inline)
-        .habitErrorAlert(viewModel)
+        .habitErrorAlert(message: viewModel.errorMessage, dismiss: viewModel.dismissError)
         .onAppear {
             selectedTime = viewModel.timeForPicker
         }

@@ -3,7 +3,7 @@
 import SwiftUI
 
 struct GymTrackingView: View {
-    @State private var viewModel = HabitCheckInViewModel(template: .gymRepetitions)
+    @State private var viewModel = GymTrackingViewModel()
     @Environment(ThemeManager.self) private var themeManager
 
     var body: some View {
@@ -25,7 +25,7 @@ struct GymTrackingView: View {
             Spacer()
             if viewModel.hasCheckedInToday {
                 Button("Clear today’s repetitions") {
-                    Task { await viewModel.clearToday() }
+                    Task { await viewModel.clearRepetitions() }
                 }
                 .buttonStyle(.plain)
                 .font(.footnote.weight(.medium))
@@ -37,14 +37,14 @@ struct GymTrackingView: View {
         .background(themeManager.palette.background.ignoresSafeArea())
         .navigationTitle("Gym Repetitions")
         .navigationBarTitleDisplayMode(.inline)
-        .habitErrorAlert(viewModel)
+        .habitErrorAlert(message: viewModel.errorMessage, dismiss: viewModel.dismissError)
         .safeAreaInset(edge: .top, spacing: 0) {
             HabitDayStreakBanner(data: viewModel.weekSnapshot, symbol: viewModel.habit.symbol)
         }
     }
 
     private func repetitionButton(_ title: String, amount: Double) -> some View {
-        Button(title) { Task { await viewModel.increment(by: amount) } }
+        Button(title) { Task { _ = await viewModel.recordRepetitions(Int(amount)) } }
             .font(.title2.bold())
             .buttonStyle(.borderedProminent)
             .controlSize(.large)

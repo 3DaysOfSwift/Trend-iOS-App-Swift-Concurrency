@@ -6,10 +6,12 @@ import Testing
 
 @MainActor
 struct AppBrainTests {
-    @Test func startupBeginsIndependentServicesBeforeWaitingForEither() async {
+    @Test func applicationLaunchBeginsIndependentServicesBeforeWaitingForEither() async {
         let repository = StartupProbeRepository()
         let brain = TestAppBrainFactory.make(repository: repository)
-        let startup = Task { @MainActor in await brain.start() }
+        let applicationLaunch = Task { @MainActor in
+            await brain.applicationDidFinishLaunching()
+        }
 
         for _ in 0..<100 {
             if await repository.didStartBothOperations { break }
@@ -17,9 +19,36 @@ struct AppBrainTests {
         }
         let bothStartedBeforeRelease = await repository.didStartBothOperations
         await repository.releaseOperations()
-        await startup.value
+        await applicationLaunch.value
 
         #expect(bothStartedBeforeRelease)
+    }
+
+    @Test func simultaneousScenesAwaitTheSameApplicationLaunchWork() async {
+        let repository = StartupProbeRepository()
+        let brain = TestAppBrainFactory.make(repository: repository)
+        let completion = CompletionProbe()
+        let firstScene = Task { @MainActor in
+            await brain.applicationDidFinishLaunching()
+        }
+
+        for _ in 0..<100 {
+            if await repository.didStartBothOperations { break }
+            await Task.yield()
+        }
+        let secondScene = Task { @MainActor in
+            await brain.applicationDidFinishLaunching()
+            await completion.markCompleted()
+        }
+        for _ in 0..<10 { await Task.yield() }
+
+        #expect(!(await completion.isCompleted))
+
+        await repository.releaseOperations()
+        await firstScene.value
+        await secondScene.value
+
+        #expect(await completion.isCompleted)
     }
 
     @Test func goalWorkflowOwnsValidationAndUnitConversion() async throws {
@@ -63,11 +92,19 @@ struct AppBrainTests {
         let repository = InMemoryWeightRepository()
         let brain = TestAppBrainFactory.make(repository: repository)
 
-        await brain.start()
+        await brain.applicationDidFinishLaunching()
         try await brain.weightEntries.save(WeightEntryDraft(value: "75"), editing: nil)
 
         #expect(brain.weightEntries.entries.count == 1)
         #expect(brain.progressFeature.progressSnapshot.points.count == 1)
+    }
+}
+
+private actor CompletionProbe {
+    private(set) var isCompleted = false
+
+    func markCompleted() {
+        isCompleted = true
     }
 }
 

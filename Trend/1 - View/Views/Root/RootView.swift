@@ -21,6 +21,6 @@ struct RootView: View {
         .tint(themeManager.palette.accent)
         .toolbarBackground(.ultraThinMaterial, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
-        .task { await viewModel.start() }
+        .task { await viewModel.applicationDidFinishLaunching() }
     }
 }

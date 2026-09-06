@@ -1,6 +1,7 @@
 // © www.3DaysOfSwiftConcurrency.com. All rights reserved.
 
 import Observation
+import Foundation
 
 @MainActor
 @Observable
@@ -15,20 +16,41 @@ final class PurchaseManager: PurchaseFeature {
     private(set) var isLoading = true
     private(set) var isPurchasing = false
     private(set) var message: String?
+    private(set) var newlyCompletedPurchaseID: UUID?
+    private var hasCompletedInitialEntitlementCheck = false
 
     init(client: any PurchaseClient) {
         self.client = client
     }
 
-    func start() async {
-        listenForTransactionUpdates()
-        do {
-            habitsProduct = try await client.product(withID: Self.habitsProductID)
-            await refreshEntitlements()
-        } catch {
-            message = error.localizedDescription
+    func observeTransactionUpdates() {
+        guard transactionUpdatesTask == nil else { return }
+        transactionUpdatesTask = Task { @MainActor [weak self, client] in
+            for await _ in client.transactionUpdates() {
+                guard let self else { return }
+                let wasUnlocked = self.hasUnlockedHabits
+                await self.refreshEntitlements()
+                if self.hasCompletedInitialEntitlementCheck, !wasUnlocked, self.hasUnlockedHabits {
+                    self.newlyCompletedPurchaseID = UUID()
+                }
+            }
         }
+    }
+
+    func refreshStoreState() async {
+        isLoading = true
+        let productTask = Task { @MainActor [client] in
+            try await client.product(withID: Self.habitsProductID)
+        }
+        let entitlementTask = Task { @MainActor [client] in
+            await client.hasEntitlement(for: Self.habitsProductID)
+        }
+
+        do { habitsProduct = try await productTask.value }
+        catch { message = error.localizedDescription }
+        hasUnlockedHabits = await entitlementTask.value
         isLoading = false
+        hasCompletedInitialEntitlementCheck = true
     }
 
     func purchaseHabits() async {
@@ -68,13 +90,4 @@ final class PurchaseManager: PurchaseFeature {
         hasUnlockedHabits = await client.hasEntitlement(for: Self.habitsProductID)
     }
 
-    private func listenForTransactionUpdates() {
-        guard transactionUpdatesTask == nil else { return }
-        transactionUpdatesTask = Task { @MainActor [weak self, client] in
-            for await _ in client.transactionUpdates() {
-                guard let self else { return }
-                await self.refreshEntitlements()
-            }
-        }
-    }
 }

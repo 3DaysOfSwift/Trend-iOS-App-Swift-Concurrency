@@ -30,7 +30,7 @@ struct TodayViewModelTests {
         let latest = WeightEntry(date: now, kilograms: 80)
         let repository = InMemoryWeightRepository(store: .init(entries: [older, latest], goalKilograms: nil))
         let brain = TestAppBrainFactory.make(repository: repository, unit: .pounds)
-        await brain.start()
+        await brain.applicationDidFinishLaunching()
         let viewModel = TodayViewModel(today: brain.weightEntries)
 
         #expect(viewModel.latestEntry == latest)

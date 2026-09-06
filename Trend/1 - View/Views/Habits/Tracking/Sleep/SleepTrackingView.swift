@@ -3,7 +3,7 @@
 import SwiftUI
 
 struct SleepTrackingView: View {
-    @State private var viewModel = HabitCheckInViewModel(template: .sleep)
+    @State private var viewModel = SleepTrackingViewModel()
     @Environment(ThemeManager.self) private var themeManager
     @State private var hours = 8.0
     @State private var isEditing = false
@@ -35,7 +35,7 @@ struct SleepTrackingView: View {
         .onAppear {
             if viewModel.hasCheckedInToday { hours = viewModel.todayValue }
         }
-        .habitErrorAlert(viewModel)
+        .habitErrorAlert(message: viewModel.errorMessage, dismiss: viewModel.dismissError)
         .sensoryFeedback(.success, trigger: feedback)
     }
 
@@ -119,8 +119,7 @@ struct SleepTrackingView: View {
         isEditing = true
         Task {
             defer { isSaving = false }
-            await viewModel.record(hours)
-            guard viewModel.errorMessage == nil else { return }
+            guard await viewModel.recordSleep(hours: hours) else { return }
             feedback += 1
             isCelebrating = true
             celebrationProgress = 0

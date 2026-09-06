@@ -13,9 +13,20 @@ final class InMemoryPurchaseClient: PurchaseClient {
     )
     var hasPurchased = false
     var nextOutcome: PurchaseOutcome = .purchased
-    var updates = AsyncStream<Void> { _ in }
+    var productError: (any Error)?
+    private let updates: AsyncStream<Void>
+    private let updateContinuation: AsyncStream<Void>.Continuation
 
-    func product(withID id: String) async throws -> PurchaseProduct? { product }
+    init() {
+        let transactionUpdates = AsyncStream<Void>.makeStream()
+        updates = transactionUpdates.stream
+        updateContinuation = transactionUpdates.continuation
+    }
+
+    func product(withID id: String) async throws -> PurchaseProduct? {
+        if let productError { throw productError }
+        return product
+    }
 
     func purchase(productID: String) async throws -> PurchaseOutcome {
         if case .purchased = nextOutcome { hasPurchased = true }
@@ -25,4 +36,9 @@ final class InMemoryPurchaseClient: PurchaseClient {
     func hasEntitlement(for productID: String) async -> Bool { hasPurchased }
     func restore() async throws {}
     func transactionUpdates() -> AsyncStream<Void> { updates }
+
+    func completePurchaseOutsideThePurchaseSheet() {
+        hasPurchased = true
+        updateContinuation.yield()
+    }
 }

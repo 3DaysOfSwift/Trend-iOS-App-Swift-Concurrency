@@ -9,63 +9,133 @@
                            │ user intent
                            ▼
 ┌────────────────────── AppBrain ────────────────────────┐
-│ AppBrain assembles Feature Managers                   │
-│ ViewModel → Feature API → Feature Manager             │
-│                              │                         │
-│                              ▼                         │
-│                    Repository Contract                │
-│                                      │                 │
-│                                      ▼                 │
-│                            Storage Implementation      │
+│ AppBrain                                               │
+│    │ references                                        │
+│    ▼                                                   │
+│ Feature Managers                                       │
+│    │                                                   │
+│    ▼                                                   │
+│ Repository Contracts                                  │
+│    │                                                   │
+│    ▼                                                   │
+│ Storage Implementations                               │
 └────────────────────────────────────────────────────────┘
 ```
+
+The boundary between the View and the Model is intentionally explicit:
+
+```text
+ViewModel → Feature API → Feature Manager
+```
+
+The ViewModel communicates only through the narrow Feature API it needs. The
+Feature Manager implements that API inside the AppBrain layer, owns the feature
+behaviour, and reaches external systems through a repository contract. This
+keeps the ViewModel on the presentation side of the boundary while allowing
+AppBrain to assemble and retain the real Feature Managers and storage
+implementations.
 
 ## Folder map
 
 ```text
 Trend
 ├── 1 - View
-│   ├── Root
-│   │   ├── RootView.swift
-│   │   └── RootViewModel.swift
-│   ├── Today
-│   │   ├── TodayView.swift
-│   │   └── TodayViewModel.swift
-│   ├── EntryEditor
-│   ├── Progress
-│   ├── History
-│   └── Settings
+│   ├── TrendApp.swift
+│   ├── Theme
+│   │   ├── AppColourTheme.swift
+│   │   └── ThemeManager.swift
+│   ├── SwiftUI Extensions
+│   │   └── HabitErrorAlert.swift
+│   └── Views
+│       ├── Root
+│       │   ├── RootView.swift
+│       │   └── RootViewModel.swift
+│       ├── Today
+│       │   ├── TodayView.swift
+│       │   └── TodayViewModel.swift
+│       ├── EntryEditor
+│       │   ├── EntryEditorView.swift
+│       │   └── EntryEditorViewModel.swift
+│       ├── Progress
+│       │   ├── ProgressView.swift
+│       │   └── ProgressViewModel.swift
+│       ├── History
+│       │   ├── HistoryView.swift
+│       │   └── HistoryViewModel.swift
+│       ├── Settings
+│       │   ├── SettingsView.swift
+│       │   └── SettingsViewModel.swift
+│       └── Habits
+│           ├── HabitsView.swift
+│           ├── HabitsViewModel.swift
+│           ├── HabitLibraryView.swift
+│           ├── HabitLibraryViewModel.swift
+│           ├── History
+│           │   ├── HabitHistoryView.swift
+│           │   └── HabitHistoryViewModel.swift
+│           └── Tracking
+│               ├── Coffee
+│               │   ├── CoffeeTrackingView.swift
+│               │   └── CoffeeTrackingViewModel.swift
+│               ├── Gym
+│               │   ├── GymTrackingView.swift
+│               │   └── GymTrackingViewModel.swift
+│               ├── Alcohol
+│               │   ├── AlcoholTrackingView.swift
+│               │   └── AlcoholTrackingViewModel.swift
+│               ├── Running
+│               │   ├── RunningTrackingView.swift
+│               │   └── RunningTrackingViewModel.swift
+│               ├── Sleep
+│               │   ├── SleepTrackingView.swift
+│               │   └── SleepTrackingViewModel.swift
+│               ├── Wake Time
+│               │   ├── WakeTimeTrackingView.swift
+│               │   └── WakeTimeTrackingViewModel.swift
+│               └── Water
+│                   ├── WaterTrackingView.swift
+│                   └── WaterTrackingViewModel.swift
 ├── 2 - AppBrain
 │   ├── AppBrain.swift
 │   ├── Features
-│   │   ├── WeightLog
+│   │   ├── Daily Streak
+│   │   ├── Daily Tips
+│   │   ├── Daily Trend
+│   │   ├── Habits
 │   │   ├── Progress
-│   │   └── Settings
+│   │   ├── Purchases
+│   │   ├── Settings
+│   │   └── WeightLog
+│   │       ├── WeightEntry
+│   │       ├── WeightEntryDraft
+│   │       └── WeightUnit
 │   └── User Data Storage
-│       ├── Data Types
-│       │   ├── WeightEntry
-│       │   ├── WeightEntryDraft
-│       │   └── WeightUnit
 │       ├── Protocols
 │       ├── Local
 │       └── CloudKit
-└── 3 - App Resources
+├── 3 - App Resources
+│   ├── Assets.xcassets
+│   ├── PrivacyInfo.xcprivacy
+│   └── Trend.entitlements
+└── 4 - Swift Extensions
 ```
 
-The numeric prefixes make the intended reading order explicit in Xcode: presentation first, application behavior second, and supporting app resources last.
-
-There is no generic `Networking` folder because Trend has no HTTP API. CloudKit is a storage implementation and is named accordingly. Add a networking layer only when a real feature requires one.
+The numeric prefixes make the intended reading order explicit in Xcode:
+presentation first, application behaviour second, supporting app resources
+third, and reusable Swift language extensions fourth.
 
 ## Responsibilities
 
 ### View
 
 - Renders values supplied by its ViewModel.
-- Creates and owns its `@Observable` ViewModel with `@State`, so the model's lifetime follows the screen's lifetime.
+- Remains a lightweight, declarative description that is quick to create and discard without starting work as a side effect.
+- Creates and owns its `@Observable` ViewModel as `@State private var viewModel = FeatureViewModel()`, so the model's lifetime follows the screen's lifetime.
 - Uses a local `@Bindable` projection only where a SwiftUI control needs a writable binding.
 - Owns any sheet or dialog it presents using local SwiftUI state.
 - Accepts no service, ViewModel, or callback inputs. A destination may accept the plain data it renders or edits, such as `EntryEditorView(entry:)`.
 - Owns ephemeral visual state such as the selected chart point or keyboard focus.
+- May create an unretained `Task` to bridge a synchronous UI event to an async method, but never stores a Task handle.
 - Contains no repository access and coordinates no feature managers.
 
 ### ViewModel
@@ -74,25 +144,36 @@ There is no generic `Networking` folder because Trend has no HTTP API. CloudKit 
 - Uses the Observation framework's `@Observable` macro; stored properties need no `@Published` annotation.
 - Converts feature state into values convenient for that View.
 - Receives user intent and forwards it to its retained feature capability.
-- Retains one narrow feature capability, such as `TodayFeature` or `HistoryFeature`, rather than AppBrain itself.
+- Owns any Task that must be tracked, cancelled, replaced, or inspected later.
+- Retains the smallest coherent set of narrow feature capabilities required by its screen, rather than AppBrain itself.
 - Defaults that capability to the matching feature supplied by `AppBrain.shared`, allowing production Views to construct it without dependency plumbing.
 - Keeps the feature initializer parameter available so tests can substitute an isolated capability.
 - Contains presentation validation and file-picker state when those concerns are specific to its View.
 - Does not persist data or call another ViewModel.
 - Is never cached by RootViewModel or another ViewModel.
 
+### Colour Theme
+
+`AppColourTheme` is the single reviewable palette shared with the design team,
+and `ThemeManager` supplies the selected theme to every screen. Trend supports
+multiple themes during development so every View is forced to use the shared
+palette rather than accumulating independent colour literals. Both types remain
+in `1 - View` because they control presentation.
+
 ### AppBrain
 
 - Is the composition root exposed as the single production instance `AppBrain.shared`.
 - Constructs feature managers and supplies their narrow APIs to ViewModels.
 - Stores one `WeightEntryFeature` instance shared by Today, Entry Editor, and History, making it impossible to assemble those screens over inconsistent weight state.
-- Keeps feature-specific workflows in their managers. Its sole application-wide workflow is `start()`, which initializes the shared graph once.
+- Keeps feature-specific workflows in their managers. Its sole application-wide workflow is `applicationDidFinishLaunching()`, which uses the first moments after launch as an opportunity to begin loading app-scoped features and install long-lived observers once.
 - Has a fully explicit initializer: every dependency is required and no production implementation is silently created there.
 - Confines production construction policy to `live()`; test construction policy lives in `TestAppBrainFactory`.
 - Wires production feature managers to production repositories.
 - Contains no SwiftUI layout code.
 
-AppBrain and its feature managers are app-scoped; ViewModels are view-scoped. Removing a View releases its ViewModel, while shared feature state remains available through the feature manager retained by AppBrain. Production ViewModels select one capability from `AppBrain.shared` through a defaulted initializer parameter; tests inject the same narrow capability from an isolated application graph.
+AppBrain and its feature managers are app-scoped; ViewModels are view-scoped. Removing a View releases its ViewModel, while shared feature state remains available through the feature manager retained by AppBrain. Production ViewModels select the narrow capabilities they need from `AppBrain.shared` through defaulted initializer parameters; tests inject the same capabilities from an isolated application graph.
+
+`applicationDidFinishLaunching()` does not own or interpret the result of those loads. Each feature manager owns its idle, loading, loaded, empty, or failed state. A ViewModel exposes that state when its screen appears, and the screen offers retry when recovery is possible. Launch simply gives independent features a head start while the user is looking at the first screen.
 
 Presentation remains local to the presenting View. Today logs new measurements directly and presents no editor sheet. History stores the selected entry for its edit sheet, and the editor receives that plain domain value. No View receives AppBrain, a ViewModel, or a navigation closure.
 
@@ -134,7 +215,7 @@ The View decides how saving looks. The ViewModel owns editor state. `WeightEntry
 `TrendTests` has two visible branches that match the architectural boundary:
 
 - `View model tests` contains one intent-focused suite for every ViewModel.
-- `AppBrain tests` contains coordination, feature-manager, and domain-calculation suites. Its `Test Support` folder contains the shared in-memory repository and AppBrain factory, so production builds never ship test doubles.
+- `AppBrain tests` contains coordination, feature-manager, and domain-calculation suites. Its `Test Support` folder keeps shared testing tools, such as the in-memory repository and AppBrain factory, together and clearly separated from the application code.
 
 Every ViewModel has a dedicated suite named after it. Those tests describe presentation behavior at the ViewModel boundary: initial state, derived display data, user intent callbacks, successful workflows, validation, and recoverable failures. The shared `TestAppBrainFactory` assembles the real AppBrain and feature managers around an `InMemoryWeightRepository`, keeping tests realistic without reaching CloudKit.
 

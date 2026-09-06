@@ -18,14 +18,14 @@ struct HabitsViewModelTests {
     }
 
     @Test func dashboardExposesTodaysRecordedSummary() async throws {
-        let manager = HabitsManager(repository: InMemoryHabitRepository())
         let date = Date(timeIntervalSince1970: 1_788_480_000)
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: { date })
         try await manager.selectTemplates([HabitTemplate.coffee.id])
-        try await manager.record(2, for: HabitTemplate.coffee.id, on: date)
+        try await manager.recordCoffee(on: date)
+        try await manager.recordCoffee(on: date)
         let viewModel = HabitsViewModel(
             habitsFeature: manager,
-            purchaseFeature: PurchaseManager(client: InMemoryPurchaseClient()),
-            currentDate: { date }
+            purchaseFeature: PurchaseManager(client: InMemoryPurchaseClient())
         )
 
         #expect(viewModel.hasCheckedIn(HabitTemplate.coffee.habit))

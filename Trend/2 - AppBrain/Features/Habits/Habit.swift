@@ -57,8 +57,15 @@ enum RunningDistanceUnit: String, CaseIterable, Identifiable, Sendable {
 }
 
 struct HabitStore: Codable, Equatable, Sendable {
-    var habits: [Habit]
+    var selectedHabitIDs: [String]
     var entries: [HabitEntry]
+}
+
+enum HabitLoadState: Equatable {
+    case idle
+    case loading
+    case ready
+    case failed(String)
 }
 
 struct HabitWeekSnapshot: Equatable, Sendable {

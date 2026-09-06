@@ -3,7 +3,7 @@
 import SwiftUI
 
 struct RunningTrackingView: View {
-    @State private var viewModel = HabitCheckInViewModel(template: .runningDistance)
+    @State private var viewModel = RunningTrackingViewModel()
     @Environment(ThemeManager.self) private var themeManager
     @State private var distanceKilometres = 5.0
     @State private var selectedUnit = RunningDistanceUnit.kilometres
@@ -33,7 +33,7 @@ struct RunningTrackingView: View {
         .background(themeManager.palette.background.ignoresSafeArea())
         .navigationTitle("Running")
         .navigationBarTitleDisplayMode(.inline)
-        .habitErrorAlert(viewModel)
+        .habitErrorAlert(message: viewModel.errorMessage, dismiss: viewModel.dismissError)
         .sensoryFeedback(.success, trigger: feedback)
     }
 
@@ -110,9 +110,9 @@ struct RunningTrackingView: View {
             .frame(width: 190, height: 190)
             .transition(.scale(scale: 0.22).combined(with: .opacity))
 
-            Text(viewModel.todayOccurrenceCount == 1 ? "Run complete" : "Runs complete")
+            Text(viewModel.todayRunCount == 1 ? "Run complete" : "Runs complete")
                 .font(.largeTitle.bold())
-            Text("\(viewModel.todayOccurrenceCount) \(viewModel.todayOccurrenceCount == 1 ? "run" : "runs") today")
+            Text("\(viewModel.todayRunCount) \(viewModel.todayRunCount == 1 ? "run" : "runs") today")
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(themeManager.palette.success)
             Text(todayDistanceDescription)
@@ -145,7 +145,7 @@ struct RunningTrackingView: View {
         isAddingAnotherRun = true
         Task {
             defer { isSaving = false }
-            if await viewModel.recordOccurrence(distanceKilometres) {
+            if await viewModel.recordRun(kilometres: distanceKilometres) {
                 feedback += 1
                 isCelebrating = true
                 celebrationProgress = 0

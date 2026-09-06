@@ -18,7 +18,11 @@ struct TodayView: View {
                 themeManager.palette.background
                     .ignoresSafeArea()
 
-                if showsResult, let result = viewModel.submittedResult {
+                if viewModel.loadState == .idle || viewModel.loadState == .loading {
+                    SwiftUI.ProgressView("Loading your weight history…")
+                } else if case .failed(let message) = viewModel.loadState {
+                    loadFailure(message)
+                } else if showsResult, let result = viewModel.submittedResult {
                     resultContent(result)
                         .transition(.opacity.combined(with: .scale(scale: 0.96)))
                 } else {
@@ -33,8 +37,26 @@ struct TodayView: View {
                 streakBar
             }
         }
-        .task { await focusWeightField() }
+        .task {
+            async let load: Void = viewModel.loadIfRequired()
+            async let focus: Void = focusWeightField()
+            await load
+            await focus
+        }
         .sensoryFeedback(.selection, trigger: themeChangeFeedback)
+    }
+
+    private func loadFailure(_ message: String) -> some View {
+        ContentUnavailableView {
+            Label("Couldn’t load your weight history", systemImage: "exclamationmark.triangle")
+        } description: {
+            Text(message)
+        } actions: {
+            Button("Try again") {
+                Task { await viewModel.retryLoad() }
+            }
+            .buttonStyle(.borderedProminent)
+        }
     }
 
     private var streakBar: some View {

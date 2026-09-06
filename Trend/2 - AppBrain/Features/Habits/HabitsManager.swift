@@ -8,26 +8,36 @@ import Observation
 final class HabitsManager: HabitsFeature {
     private let repository: any HabitRepository
     private let calendar: Calendar
+    private let currentDate: @MainActor () -> Date
 
+    private(set) var loadState: HabitLoadState = .idle
     private(set) var habits: [Habit] = []
     private(set) var entries: [HabitEntry] = []
     private(set) var errorMessage: String?
 
-    init(repository: any HabitRepository, calendar: Calendar = .current) {
+    init(
+        repository: any HabitRepository,
+        calendar: Calendar = .current,
+        currentDate: @escaping @MainActor () -> Date = { .now }
+    ) {
         self.repository = repository
         self.calendar = calendar
+        self.currentDate = currentDate
     }
 
     func refresh() async {
+        loadState = .loading
         do {
             let store = try await repository.load()
-            // Templates define which trackers the current app supports. Keep
-            // retired tracker history in storage, but do not present it.
-            habits = store.habits.filter { HabitTemplate(rawValue: $0.id) != nil }
+            habits = HabitTemplate.allCases
+                .filter { store.selectedHabitIDs.contains($0.id) }
+                .map(\.habit)
             entries = store.entries
             errorMessage = nil
+            loadState = .ready
         } catch {
             errorMessage = error.localizedDescription
+            loadState = .failed(error.localizedDescription)
         }
     }
 
@@ -37,15 +47,15 @@ final class HabitsManager: HabitsFeature {
             .map(\.habit)
         // Keep history when a habit leaves the active selection. Selecting it
         // again should restore its earlier trend rather than silently erase it.
-        try await persist(habits: selected, entries: entries)
+        try await persist(selectedHabitIDs: selected.map(\.id), entries: entries)
     }
 
-    func record(_ value: Double, for habitID: String, on date: Date) async throws {
+    private func record(_ value: Double, for habitID: String, on date: Date) async throws {
         guard
-            let habit = habits.first(where: { $0.id == habitID }),
-            value.isFinite,
-            value >= 0,
-            isValid(value, for: habit.valueType)
+            habits.contains(where: { $0.id == habitID }),
+            let template = HabitTemplate(rawValue: habitID),
+            !template.recordingPolicy.accumulatesOccurrences,
+            template.recordingPolicy.accepts(value)
         else {
             throw HabitError.invalidValue
         }
@@ -61,15 +71,15 @@ final class HabitsManager: HabitsFeature {
             occurrenceCount: existingEntry?.occurrenceCount
         ))
         updatedEntries.sort { $0.date > $1.date }
-        try await persist(habits: habits, entries: updatedEntries)
+        try await persist(selectedHabitIDs: habits.map(\.id), entries: updatedEntries)
     }
 
-    func recordOccurrence(_ value: Double, for habitID: String, on date: Date) async throws {
+    private func recordOccurrence(_ value: Double, for habitID: String, on date: Date) async throws {
         guard
-            let habit = habits.first(where: { $0.id == habitID }),
-            value.isFinite,
-            value > 0,
-            isValid(value, for: habit.valueType)
+            habits.contains(where: { $0.id == habitID }),
+            let template = HabitTemplate(rawValue: habitID),
+            template.recordingPolicy.accumulatesOccurrences,
+            template.recordingPolicy.accepts(value)
         else {
             throw HabitError.invalidValue
         }
@@ -86,30 +96,37 @@ final class HabitsManager: HabitsFeature {
             occurrenceCount: (existingEntry?.occurrenceCount ?? 0) + 1
         ))
         updatedEntries.sort { $0.date > $1.date }
-        try await persist(habits: habits, entries: updatedEntries)
+        try await persist(selectedHabitIDs: habits.map(\.id), entries: updatedEntries)
     }
 
-    func removeOne(for habitID: String, on date: Date) async throws {
+    private func removeOne(for habitID: String, on date: Date) async throws {
+        guard HabitTemplate(rawValue: habitID) == .coffee || HabitTemplate(rawValue: habitID) == .water || HabitTemplate(rawValue: habitID) == .alcohol else {
+            throw HabitError.unsupportedOperation
+        }
         guard let existingEntry = entry(for: habitID, on: date), existingEntry.value > 0 else { return }
 
         if existingEntry.value > 1 {
             try await record(existingEntry.value - 1, for: habitID, on: date)
         } else {
             let updatedEntries = entries.filter { $0.id != existingEntry.id }
-            try await persist(habits: habits, entries: updatedEntries)
+            try await persist(selectedHabitIDs: habits.map(\.id), entries: updatedEntries)
         }
     }
 
-    func clearEntry(for habitID: String, on date: Date) async throws {
+    private func clearEntry(for habitID: String, on date: Date) async throws {
         let updatedEntries = entries.filter {
             !($0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: date))
         }
         guard updatedEntries.count != entries.count else { return }
-        try await persist(habits: habits, entries: updatedEntries)
+        try await persist(selectedHabitIDs: habits.map(\.id), entries: updatedEntries)
     }
 
     func entry(for habitID: String, on date: Date) -> HabitEntry? {
         entries.first { $0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: date) }
+    }
+
+    func todaysEntry(for habitID: String) -> HabitEntry? {
+        entry(for: habitID, on: currentDate())
     }
 
     func weekSnapshot(for habitID: String, on date: Date) -> HabitWeekSnapshot {
@@ -136,12 +153,91 @@ final class HabitsManager: HabitsFeature {
         )
     }
 
+    func currentWeekSnapshot(for habitID: String) -> HabitWeekSnapshot {
+        weekSnapshot(for: habitID, on: currentDate())
+    }
+
     func lifetimeSummary(for habitID: String) -> HabitLifetimeSummary {
         let habitEntries = entries.filter { $0.habitID == habitID }
         return HabitLifetimeSummary(
             totalValue: habitEntries.reduce(0) { $0 + $1.value },
             firstEntryDate: habitEntries.map(\.date).min()
         )
+    }
+
+    func recordCoffee(on date: Date) async throws {
+        try await record((entry(for: HabitTemplate.coffee.id, on: date)?.value ?? 0) + 1, for: HabitTemplate.coffee.id, on: date)
+    }
+
+    func removeCoffee(on date: Date) async throws {
+        try await removeOne(for: HabitTemplate.coffee.id, on: date)
+    }
+
+    func recordGymRepetitions(_ repetitions: Int, on date: Date) async throws {
+        let total = (entry(for: HabitTemplate.gymRepetitions.id, on: date)?.value ?? 0) + Double(repetitions)
+        try await record(total, for: HabitTemplate.gymRepetitions.id, on: date)
+    }
+
+    func clearGymRepetitions(on date: Date) async throws {
+        try await clearEntry(for: HabitTemplate.gymRepetitions.id, on: date)
+    }
+
+    func recordRun(kilometres: Double, on date: Date) async throws {
+        try await recordOccurrence(kilometres, for: HabitTemplate.runningDistance.id, on: date)
+    }
+
+    func recordSleep(hours: Double, on date: Date) async throws {
+        try await record(hours, for: HabitTemplate.sleep.id, on: date)
+    }
+
+    func recordWakeTime(minutesAfterMidnight: Int, on date: Date) async throws {
+        try await record(Double(minutesAfterMidnight), for: HabitTemplate.wakeTime.id, on: date)
+    }
+
+    func recordGlassOfWater(on date: Date) async throws {
+        let total = (entry(for: HabitTemplate.water.id, on: date)?.value ?? 0) + 1
+        try await record(total, for: HabitTemplate.water.id, on: date)
+    }
+
+    func recordAlcoholicDrink(on date: Date) async throws {
+        let total = (entry(for: HabitTemplate.alcohol.id, on: date)?.value ?? 0) + 1
+        try await record(total, for: HabitTemplate.alcohol.id, on: date)
+    }
+
+    func recordCoffeeToday() async throws {
+        try await recordCoffee(on: currentDate())
+    }
+
+    func removeCoffeeToday() async throws {
+        try await removeCoffee(on: currentDate())
+    }
+
+    func recordGymRepetitionsToday(_ repetitions: Int) async throws {
+        try await recordGymRepetitions(repetitions, on: currentDate())
+    }
+
+    func clearGymRepetitionsToday() async throws {
+        try await clearGymRepetitions(on: currentDate())
+    }
+
+    func recordRunToday(kilometres: Double) async throws {
+        try await recordRun(kilometres: kilometres, on: currentDate())
+    }
+
+    func recordSleepToday(hours: Double) async throws {
+        try await recordSleep(hours: hours, on: currentDate())
+    }
+
+    func recordWakeTimeToday(minutesAfterMidnight: Int) async throws {
+        try await recordWakeTime(minutesAfterMidnight: minutesAfterMidnight, on: currentDate())
+    }
+
+    func recordGlassOfWaterToday() async throws {
+        try await recordGlassOfWater(on: currentDate())
+    }
+
+    func recordAlcoholicDrinkToday() async throws {
+        try await recordAlcoholicDrink(on: currentDate())
     }
 
     private func currentStreak(for habitID: String, on date: Date) -> Int {
@@ -162,25 +258,27 @@ final class HabitsManager: HabitsFeature {
         return streak
     }
 
-    private func persist(habits: [Habit], entries: [HabitEntry]) async throws {
-        let store = HabitStore(habits: habits, entries: entries)
+    private func persist(selectedHabitIDs: [String], entries: [HabitEntry]) async throws {
+        let store = HabitStore(selectedHabitIDs: selectedHabitIDs, entries: entries)
         try await repository.save(store)
-        self.habits = habits
+        habits = HabitTemplate.allCases
+            .filter { selectedHabitIDs.contains($0.id) }
+            .map(\.habit)
         self.entries = entries
+        loadState = .ready
         errorMessage = nil
     }
 
-    private func isValid(_ value: Double, for type: HabitValueType) -> Bool {
-        switch type {
-        case .number: true
-        case .timeOfDay: value < 24 * 60
-        case .rating: (1...5).contains(value) && value.rounded() == value
-        }
-    }
 }
 
 enum HabitError: LocalizedError {
     case invalidValue
+    case unsupportedOperation
 
-    var errorDescription: String? { "Enter a valid value before saving." }
+    var errorDescription: String? {
+        switch self {
+        case .invalidValue: "Enter a valid value before saving."
+        case .unsupportedOperation: "This tracker does not support that action."
+        }
+    }
 }

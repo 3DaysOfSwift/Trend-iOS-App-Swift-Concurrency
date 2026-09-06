@@ -12,5 +12,7 @@ final class RootViewModel {
         self.appBrain = appBrain
     }
 
-    func start() async { await appBrain.start() }
+    func applicationDidFinishLaunching() async {
+        await appBrain.applicationDidFinishLaunching()
+    }
 }

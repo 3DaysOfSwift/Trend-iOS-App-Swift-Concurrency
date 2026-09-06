@@ -3,7 +3,7 @@
 import SwiftUI
 
 struct CoffeeTrackingView: View {
-    @State private var viewModel = HabitCheckInViewModel(template: .coffee)
+    @State private var viewModel = CoffeeTrackingViewModel()
     @Environment(ThemeManager.self) private var themeManager
     @State private var feedback = 0
     @State private var isRecordingCoffee = false
@@ -70,7 +70,7 @@ struct CoffeeTrackingView: View {
         .background(themeManager.palette.background.ignoresSafeArea())
         .navigationTitle(weeklyCoffeeTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .habitErrorAlert(viewModel)
+        .habitErrorAlert(message: viewModel.errorMessage, dismiss: viewModel.dismissError)
         .sensoryFeedback(.success, trigger: feedback)
     }
 
@@ -101,22 +101,20 @@ struct CoffeeTrackingView: View {
     private func recordCoffee() {
         guard !isRecordingCoffee else { return }
         isRecordingCoffee = true
-        feedback += 1
 
         Task {
             defer { isRecordingCoffee = false }
-            await viewModel.increment()
+            if await viewModel.recordCoffee() { feedback += 1 }
         }
     }
 
     private func removeCoffee() {
         guard !isRecordingCoffee, viewModel.todayValue > 0 else { return }
         isRecordingCoffee = true
-        feedback += 1
 
         Task {
             defer { isRecordingCoffee = false }
-            await viewModel.removeOne()
+            if await viewModel.removeCoffee() { feedback += 1 }
         }
     }
 }

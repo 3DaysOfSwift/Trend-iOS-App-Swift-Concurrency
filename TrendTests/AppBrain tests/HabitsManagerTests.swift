@@ -14,13 +14,13 @@ struct HabitsManagerTests {
         #expect(manager.habits.map(\.id) == [HabitTemplate.coffee.id, HabitTemplate.water.id])
     }
 
-    @Test func secondCheckInOnTheSameDayReplacesTheFirst() async throws {
+    @Test func twoCoffeesOnTheSameDayAccumulate() async throws {
         let manager = HabitsManager(repository: InMemoryHabitRepository())
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.coffee.id])
 
-        try await manager.record(3, for: HabitTemplate.coffee.id, on: date)
-        try await manager.record(2, for: HabitTemplate.coffee.id, on: date.addingTimeInterval(60))
+        try await manager.recordCoffee(on: date)
+        try await manager.recordCoffee(on: date)
 
         #expect(manager.entries.count == 1)
         #expect(manager.entry(for: HabitTemplate.coffee.id, on: date)?.value == 2)
@@ -30,7 +30,7 @@ struct HabitsManagerTests {
         let manager = HabitsManager(repository: InMemoryHabitRepository())
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.water.id])
-        try await manager.record(6, for: HabitTemplate.water.id, on: date)
+        for _ in 0..<6 { try await manager.recordGlassOfWater(on: date) }
 
         try await manager.selectTemplates([])
         try await manager.selectTemplates([HabitTemplate.water.id])
@@ -43,8 +43,8 @@ struct HabitsManagerTests {
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.runningDistance.id])
 
-        try await manager.recordOccurrence(3, for: HabitTemplate.runningDistance.id, on: date)
-        try await manager.recordOccurrence(2, for: HabitTemplate.runningDistance.id, on: date)
+        try await manager.recordRun(kilometres: 3, on: date)
+        try await manager.recordRun(kilometres: 2, on: date)
 
         let entry = manager.entry(for: HabitTemplate.runningDistance.id, on: date)
         #expect(entry?.value == 5)
@@ -55,9 +55,9 @@ struct HabitsManagerTests {
         let manager = HabitsManager(repository: InMemoryHabitRepository())
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.gymRepetitions.id])
-        try await manager.record(20, for: HabitTemplate.gymRepetitions.id, on: date)
+        try await manager.recordGymRepetitions(20, on: date)
 
-        try await manager.clearEntry(for: HabitTemplate.gymRepetitions.id, on: date)
+        try await manager.clearGymRepetitions(on: date)
 
         #expect(manager.entry(for: HabitTemplate.gymRepetitions.id, on: date) == nil)
     }
@@ -73,12 +73,13 @@ struct HabitsManagerTests {
         let manager = HabitsManager(repository: InMemoryHabitRepository())
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.coffee.id])
-        try await manager.record(2, for: HabitTemplate.coffee.id, on: date)
+        try await manager.recordCoffee(on: date)
+        try await manager.recordCoffee(on: date)
 
-        try await manager.removeOne(for: HabitTemplate.coffee.id, on: date)
+        try await manager.removeCoffee(on: date)
         #expect(manager.entry(for: HabitTemplate.coffee.id, on: date)?.value == 1)
 
-        try await manager.removeOne(for: HabitTemplate.coffee.id, on: date)
+        try await manager.removeCoffee(on: date)
         #expect(manager.entry(for: HabitTemplate.coffee.id, on: date) == nil)
     }
 
@@ -87,8 +88,8 @@ struct HabitsManagerTests {
         let firstDate = Date(timeIntervalSince1970: 1_788_480_000)
         let secondDate = firstDate.addingTimeInterval(86_400)
         try await manager.selectTemplates([HabitTemplate.coffee.id])
-        try await manager.record(2, for: HabitTemplate.coffee.id, on: firstDate)
-        try await manager.record(3, for: HabitTemplate.coffee.id, on: secondDate)
+        for _ in 0..<2 { try await manager.recordCoffee(on: firstDate) }
+        for _ in 0..<3 { try await manager.recordCoffee(on: secondDate) }
 
         let summary = manager.lifetimeSummary(for: HabitTemplate.coffee.id)
 
@@ -102,7 +103,7 @@ struct HabitsManagerTests {
         let friday = calendar.date(from: DateComponents(year: 2026, month: 9, day: 4, hour: 12))!
         let manager = HabitsManager(repository: InMemoryHabitRepository(), calendar: calendar)
         try await manager.selectTemplates([HabitTemplate.coffee.id])
-        try await manager.record(1, for: HabitTemplate.coffee.id, on: friday)
+        try await manager.recordCoffee(on: friday)
 
         let snapshot = manager.weekSnapshot(for: HabitTemplate.coffee.id, on: friday)
 
@@ -112,5 +113,32 @@ struct HabitsManagerTests {
         #expect(snapshot.days[4].hasCheckIn)
         #expect(snapshot.totalValue == 1)
         #expect(snapshot.currentStreak == 1)
+    }
+
+    @Test func appBrainRejectsValuesOutsideEachHabitPolicy() async throws {
+        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let date = Date(timeIntervalSince1970: 1_788_480_000)
+        try await manager.selectTemplates([HabitTemplate.sleep.id, HabitTemplate.wakeTime.id])
+
+        await #expect(throws: HabitError.self) {
+            try await manager.recordSleep(hours: 25, on: date)
+        }
+        await #expect(throws: HabitError.self) {
+            try await manager.recordWakeTime(minutesAfterMidnight: 1_440, on: date)
+        }
+    }
+
+    @Test func namedCoffeeCommandsKeepTheStoredCountConsistent() async throws {
+        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let date = Date(timeIntervalSince1970: 1_788_480_000)
+        try await manager.selectTemplates([HabitTemplate.coffee.id])
+
+        try await manager.recordCoffee(on: date)
+        try await manager.recordCoffee(on: date)
+        try await manager.removeCoffee(on: date)
+
+        let entry = manager.entry(for: HabitTemplate.coffee.id, on: date)
+        #expect(entry?.value == 1)
+        #expect(entry?.occurrenceCount == nil)
     }
 }

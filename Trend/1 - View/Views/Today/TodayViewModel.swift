@@ -19,6 +19,7 @@ final class TodayViewModel {
     }
 
     var latestEntry: WeightEntry? { today.latestWeightEntry }
+    var loadState: WeightLogState { today.weightLogState }
     var changeKilograms: Double? { today.latestWeightChangeKilograms }
     var progressSnapshot: ProgressSnapshot { today.progressSnapshot }
     var goalKilograms: Double? { today.goalWeightKilograms }
@@ -26,6 +27,15 @@ final class TodayViewModel {
     var unit: WeightUnit { today.selectedWeightUnit }
     var latestPermittedEntryDate: Date { today.latestPermittedEntryDate }
     var canSave: Bool { !draft.value.isEmpty && !isSaving }
+
+    func loadIfRequired() async {
+        guard loadState == .idle else { return }
+        await today.refresh()
+    }
+
+    func retryLoad() async {
+        await today.refresh()
+    }
 
     func save() async -> Bool {
         guard !isSaving else { return false }

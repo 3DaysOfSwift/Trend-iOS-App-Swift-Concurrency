@@ -15,24 +15,24 @@ struct DailyTipManagerTests {
         #expect(manager.fastingCatalogCount == 10)
     }
 
-    @Test func fastingSuggestionAppearsEveryTenthLaunch() {
+    @Test func fastingSuggestionAppearsEveryTenthRefresh() {
         let manager = makeManager()
 
         for _ in 1...9 {
-            manager.beginLaunch()
+            manager.refresh()
             #expect(manager.currentFastingSuggestion == nil)
         }
 
-        manager.beginLaunch()
+        manager.refresh()
         let firstSuggestion = manager.currentFastingSuggestion
         #expect(firstSuggestion != nil)
 
         for _ in 11...19 {
-            manager.beginLaunch()
+            manager.refresh()
             #expect(manager.currentFastingSuggestion == nil)
         }
 
-        manager.beginLaunch()
+        manager.refresh()
         #expect(manager.currentFastingSuggestion != nil)
         #expect(manager.currentFastingSuggestion?.id != firstSuggestion?.id)
     }
@@ -81,7 +81,10 @@ struct DailyTipManagerTests {
     }
 
     private func makeManager(calendar: Calendar = .current) -> DailyTipManager {
-        let defaults = UserDefaults(suiteName: "DailyTipManagerTests.\(UUID().uuidString)")!
-        return DailyTipManager(defaults: defaults, calendar: calendar)
+        DailyTipManager(defaults: makeDefaults(), calendar: calendar)
+    }
+
+    private func makeDefaults() -> UserDefaults {
+        UserDefaults(suiteName: "DailyTipManagerTests.\(UUID().uuidString)")!
     }
 }

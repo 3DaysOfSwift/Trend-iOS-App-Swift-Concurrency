@@ -6,7 +6,7 @@ import Foundation
 actor InMemoryHabitRepository: HabitRepository {
     private var store: HabitStore
 
-    init(store: HabitStore = HabitStore(habits: [], entries: [])) {
+    init(store: HabitStore = HabitStore(selectedHabitIDs: [], entries: [])) {
         self.store = store
     }
 

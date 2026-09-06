@@ -9,7 +9,7 @@ struct SettingsViewModelTests {
     @Test func initialStateReflectsStoredGoalAndUnit() async {
         let repository = InMemoryWeightRepository(store: .init(entries: [], goalKilograms: 70))
         let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.start()
+        await brain.applicationDidFinishLaunching()
 
         let viewModel = SettingsViewModel(settings: brain.settingsFeature)
 
@@ -24,7 +24,7 @@ struct SettingsViewModelTests {
     @Test func changingUnitConvertsGoalText() async {
         let repository = InMemoryWeightRepository(store: .init(entries: [], goalKilograms: 45.359237))
         let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.start()
+        await brain.applicationDidFinishLaunching()
         let viewModel = SettingsViewModel(settings: brain.settingsFeature)
 
         viewModel.unit = .pounds
@@ -76,7 +76,7 @@ struct SettingsViewModelTests {
     @Test func exportProducesJSONDocumentAndOpensExporter() async {
         let repository = InMemoryWeightRepository(store: .init(entries: [], goalKilograms: 70))
         let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.start()
+        await brain.applicationDidFinishLaunching()
         let viewModel = SettingsViewModel(settings: brain.settingsFeature)
 
         await viewModel.prepareExport()
@@ -99,7 +99,7 @@ struct SettingsViewModelTests {
         let entry = WeightEntry(date: .now, kilograms: 80)
         let repository = InMemoryWeightRepository(store: .init(entries: [entry], goalKilograms: 70))
         let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.start()
+        await brain.applicationDidFinishLaunching()
         let viewModel = SettingsViewModel(settings: brain.settingsFeature)
 
         await viewModel.deleteAllData()
@@ -116,7 +116,7 @@ struct SettingsViewModelTests {
             saveError: .saveFailed
         )
         let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.start()
+        await brain.applicationDidFinishLaunching()
         let viewModel = SettingsViewModel(settings: brain.settingsFeature)
 
         await viewModel.deleteAllData()

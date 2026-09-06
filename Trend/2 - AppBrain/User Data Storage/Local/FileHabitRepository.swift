@@ -2,11 +2,6 @@
 
 import Foundation
 
-protocol HabitRepository: Sendable {
-    func load() async throws -> HabitStore
-    func save(_ store: HabitStore) async throws
-}
-
 actor FileHabitRepository: HabitRepository {
     private let fileURL: URL
     private let encoder: JSONEncoder
@@ -25,7 +20,7 @@ actor FileHabitRepository: HabitRepository {
 
     func load() async throws -> HabitStore {
         guard FileManager.default.fileExists(atPath: fileURL.path()) else {
-            return HabitStore(habits: [], entries: [])
+            return HabitStore(selectedHabitIDs: [], entries: [])
         }
         return try decoder.decode(HabitStore.self, from: Data(contentsOf: fileURL))
     }

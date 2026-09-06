@@ -3,7 +3,7 @@
 import SwiftUI
 
 struct WaterTrackingView: View {
-    @State private var viewModel = HabitCheckInViewModel(template: .water)
+    @State private var viewModel = WaterTrackingViewModel()
     @Environment(ThemeManager.self) private var themeManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isDroppingWater = false
@@ -23,7 +23,7 @@ struct WaterTrackingView: View {
             }
             .frame(width: 220, height: 220)
             .clipped()
-            Text("\(Int(viewModel.todayValue)) glasses")
+            Text("\(viewModel.todayGlassCount) glasses")
                 .font(.largeTitle.bold().monospacedDigit())
             Button("Another glass", systemImage: "plus.circle.fill") {
                 dropWater()
@@ -42,7 +42,7 @@ struct WaterTrackingView: View {
         .background(themeManager.palette.background.ignoresSafeArea())
         .navigationTitle("Water")
         .navigationBarTitleDisplayMode(.inline)
-        .habitErrorAlert(viewModel)
+        .habitErrorAlert(message: viewModel.errorMessage, dismiss: viewModel.dismissError)
         .sensoryFeedback(.success, trigger: feedback)
         .safeAreaInset(edge: .top, spacing: 0) {
             HabitDayStreakBanner(data: viewModel.weekSnapshot, symbol: viewModel.habit.symbol)
@@ -65,9 +65,9 @@ struct WaterTrackingView: View {
                 dropletOffset = 0
             }
 
-            await viewModel.increment()
+            let wasRecorded = await viewModel.recordGlass()
             try? await Task.sleep(for: reduceMotion ? .milliseconds(250) : .milliseconds(800))
-            feedback += 1
+            if wasRecorded { feedback += 1 }
 
             withAnimation(.easeInOut(duration: 0.2)) {
                 isDroppingWater = false

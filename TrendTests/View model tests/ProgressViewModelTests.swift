@@ -14,7 +14,7 @@ struct ProgressViewModelTests {
         ]
         let repository = InMemoryWeightRepository(store: .init(entries: entries, goalKilograms: 75))
         let brain = TestAppBrainFactory.make(repository: repository, unit: .pounds)
-        await brain.start()
+        await brain.applicationDidFinishLaunching()
         let viewModel = ProgressViewModel(progress: brain.progressFeature)
 
         #expect(viewModel.snapshot.points.map(\.kilograms) == [82, 80])
