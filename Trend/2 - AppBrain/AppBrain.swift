@@ -104,7 +104,7 @@ final class AppBrain {
             purchaseFeature
         ] in
             dailyTips.refresh() // requires immediate execution - no async behaviour required
-            purchaseFeature.observeTransactionUpdates()
+            purchaseFeature.observeTransactionUpdates() // requires immediate execution
 
             let cloudStatusTask = Task { @MainActor in
                 await settingsFeature.refreshCloudStatus()
