@@ -606,7 +606,12 @@ behaviour report with evidence and remaining verification gaps. A clean review
 may require no implementation changes. Passing tests alone does not prove the
 absence of every concurrency defect.
 
-## Pass Sixteen: Review and Refine the Finished Architecture
+## Pass Sixteen: Iteratively Review and Refine the Finished Architecture
+
+This pass consists of as many review-and-refinement iterations as the developer
+needs, not a single evaluation followed by one batch of edits. Keep Pass Sixteen
+open until the developer reviews the latest evaluation and confirms that there
+are no further edits they want to perform.
 
 Evaluate the completed application against the canonical AppBrain template:
 are its files, state, decisions, and execution responsibilities owned by the
@@ -649,9 +654,30 @@ invariants and alternate command paths. Update test construction to use the
 same narrow feature boundaries as production, while retaining dedicated
 AppBrain composition tests.
 
-**Completion gate:** the canonical Review Checklist has evidence-backed answers;
+### Repeat the Review and Refinement Cycle
+
+1. Evaluate the current implementation using the boundaries above and the
+   canonical Review Checklist. Present concrete findings and proposed changes
+   to the developer, including any remaining verification gaps.
+2. Agree which refinements to perform. Implement the selected changes in small,
+   coordinated steps; do not treat a review finding as automatic approval for
+   a product change.
+3. Build, run the relevant checks and regression tests, and ask the developer
+   to manually exercise affected flows. Address regressions before proceeding.
+4. Evaluate the resulting codebase again. Check both the corrections and any
+   further issues exposed by them, then present the refreshed evaluation.
+5. Repeat while the developer wants further edits. Record each iteration's
+   changes, validation, and outstanding decisions in the ledger under Pass
+   Sixteen rather than creating a new numbered pass for every iteration.
+
+If the latest evaluation finds no worthwhile changes, say so and ask whether
+the developer is satisfied. Do not invent work to prolong the pass, and do not
+close it merely because one batch of changes or one test run succeeded.
+
+**Completion gate:** the developer confirms that the latest evaluation contains
+no further edits they want to perform; the canonical Review Checklist has evidence-backed answers;
 findings are corrected or explicitly approved for deferral; builds, concurrency
 checks, and relevant regression tests pass; and affected flows have manual
 approval. Update folder maps, the ledger, and the feature behaviour report.
-A clean review requires no code changes. Do not reopen a sound architecture
-solely to create another iteration.
+A clean iteration may require no code changes. Once the developer approves
+completion, do not reopen a sound architecture solely to create another iteration.
