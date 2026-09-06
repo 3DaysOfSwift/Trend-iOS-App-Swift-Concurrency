@@ -339,3 +339,107 @@ structure, source ownership, observable behaviour, and passing tests—not merel
 because all files compile or all GCD syntax has disappeared. It also requires no
 unknown behavioural differences, a passing regression suite, and recorded
 manual regression approval.
+
+## After Migration Completion: Write the Feature Behaviour Report
+
+Once the completion audit confirms that the migration has officially finished,
+create a project-local `MIGRATION_FEATURE_REPORT.md`. This is the final handover
+step, not another implementation pass. Explain the resulting application in
+plain English so developers, reviewers, and students can understand what each
+feature does and how its work executes without reconstructing the migration
+history.
+
+Give each feature its own heading and name its owning Feature Manager. Describe:
+
+- **Behaviour:** the actions it supports and their observable results, including
+  behaviour preserved from the original app and any explicitly approved changes.
+- **Execution ownership:** which operations run on the Main Actor, which run on
+  another executor, and where callers await results. Name the actual operation
+  and owner rather than describing an entire feature as “background” when only
+  part of its work runs off-main.
+- **Ordering and lifetime:** which operations run independently, which preserve
+  submission order, what cancellation or replacement does, and whether work
+  continues after a screen disappears.
+- **Visible state and recovery:** loading, saving, success, empty, and failure
+  states where applicable, together with the user's retry or recovery options.
+- **Evidence and limits:** links to relevant implementation files, named tests,
+  manual checks, and profiling results. Distinguish implemented behaviour from
+  measured performance; record known limitations and agreed follow-up work.
+
+For example, a preset-storage section might say:
+
+- UserDefaults access and JSON encoding/decoding run on the repository's
+  off-main serial executor, leaving the Main Actor available for UI work.
+- Saves preserve submission order and continue after the preset screen closes;
+  they are not guaranteed to finish if the application process is terminated.
+- The UI continues to show loading, saving, failure, and retry states.
+- The feature manager publishes observable state on the Main Actor while
+  awaiting storage operations.
+
+Use examples only when the application actually provides those behaviours.
+Off-main execution alone does not prove that an app is faster or never blocks.
+Support performance claims with recorded measurements, not the presence of
+`Task`, `async`, or an actor declaration.
+
+Identify the reviewed commit, report date, tested configuration, and completion
+approval. Summarise application-wide coordination, such as independent startup
+loads, separately from individual features. Link to the behaviour contract and
+migration ledger rather than copying their full history. If producing the
+report exposes an unmet completion requirement, reopen the audit; do not hide
+it behind a completed status.
+
+## Pass Twelve: Replace Combine-based UI Observation with Swift Observation
+
+This is an explicitly requested post-migration modernisation pass. Preserve the
+completed migration commit and its report as a milestone; record this new scope
+separately. The pass number is retained for the extended workflow; the preceding
+completion audit and handover remain unnumbered. Do not automatically convert
+every legacy app: first confirm that its supported OS versions and toolchain
+support Observation, and obtain approval for any deployment-target change.
+
+Replace ObservableObject, @Published, and manual objectWillChange forwarding
+with @Observable on the classes that own observable state. Keep one shared
+Feature Manager per feature and one bespoke ViewModel per screen. Feature APIs
+must no longer require Combine publishers. A computed ViewModel property should
+read its feature's authoritative state, not maintain a synchronised local copy.
+Verify that reads through the actual feature protocol participate in tracking.
+
+Use @State for the screen-owned observable viewModel and @Bindable only where
+bindings to observable properties are required. Adapt theme observation too.
+Preserve screen identity, navigation, sheet state, and task lifetimes. @State
+retains the installed value for a View identity, but its initial-value expression
+can execute when View structs are constructed again; unlike StateObject's
+autoclosure it is not a guarantee that the initializer runs only once. Keep
+initializers cheap and side-effect-free, and do not start tasks or register
+subscriptions during construction. Explicit lifecycle actions own that work.
+
+Observation is change tracking, not thread safety or background execution.
+Retain Main Actor isolation for observable state, existing off-main audio and
+storage ownership, and all ordering/cancellation guarantees. Exclude task handles
+and internal bookkeeping from tracking with @ObservationIgnored where appropriate.
+Do not make storage actors observable merely to remove an import.
+
+Remove obsolete subscriptions and cancellables rather than replacing them with
+a custom notification framework. Inventory any Combine pipelines that do more
+than UI observation: Observation is not a general replacement for event streams,
+debouncing, or backpressure. Preserve those semantics explicitly if encountered.
+
+Replace publisher-specific test assertions with Observation tracking tests of
+screen-facing properties. Cover two different ViewModels reading the same
+feature, computed and collection-derived values, relevant versus unrelated
+changes, theme updates, and loading/failure/retry state. Account for
+withObservationTracking's one-shot, pre-mutation notification semantics; read
+resulting values after mutation and establish fresh tracking for later changes.
+Retain existing business and concurrency tests, including cancellation on owner
+destruction, and manually check screen recreation, bindings, and dismissal.
+
+Follow Apple's [Observation migration guide](https://developer.apple.com/documentation/swiftui/migrating-from-the-observable-object-protocol-to-the-observable-macro)
+for framework mechanics without changing the AppBrain ownership rules.
+
+**Completion gate:** no obsolete Combine observation remains in production or
+tests; shared feature changes reach every consuming screen through its own
+ViewModel; binding, identity, and task-lifetime checks pass; complete concurrency
+checking and the regression suite pass. Record manual verification and any gaps.
+Update the architecture and feature report to describe Observation, then commit
+this modernisation separately from the completed migration. Do not claim a
+performance improvement without measurements.
