@@ -508,3 +508,49 @@ before/after measurements where available and leave unavailable runtime checks
 explicitly pending. Update the feature behaviour report and recommend a separate
 Git checkpoint. Do not claim that all Model work is off-main, that the main
 thread never blocks, or that performance improved without supporting evidence.
+
+## Pass Fourteen: Main Actor Code Review
+
+Review the finished implementation with this question:
+
+> Does each feature leave the Main Actor and its executor primarily available
+> for UI-related work, rather than using them as the default place to execute
+> the feature's workload?
+
+Pass Thirteen implements execution refinements. This pass audits the resulting
+code feature by feature, including paths that were not changed. Aim for each
+Feature Manager's substantive work to execute outside the Main Actor while
+keeping UI-observed state and short presentation-facing coordination on it.
+Review operations, not just the actor annotation on the manager: a Main Actor
+Feature Manager may correctly await work performed by its off-main repository,
+audio adapter, or computation collaborator. Do not create a second Feature
+Manager or duplicate authoritative state merely to change execution ownership.
+
+For every Feature Manager, trace its public commands and the synchronous work
+they invoke, including launch, first use, repeated interactions, failure, and
+retry paths. Inspect work before and after each await, task isolation, and
+computed properties read by the UI. Record:
+
+- which operations execute outside the Main Actor and their actual owners;
+- which operations remain on it and why they belong there;
+- any computation, I/O, resource preparation, or timing dependency still
+  unnecessarily consuming or depending on the UI executor; and
+- a concrete refinement and verification plan for each unresolved finding.
+
+Prefer moving substantive workloads to an appropriate non-main execution owner.
+Retain small state transitions where moving them would add coordination without
+a meaningful benefit, and respect APIs that require the main thread. Explain
+these decisions rather than weakening isolation or mechanically adding actors,
+detached Tasks, or async declarations. Apply Pass Thirteen's execution and
+verification safeguards to any resulting corrections, preserving feature
+ownership, observable behaviour, ordering, cancellation, and error recovery.
+
+**Completion gate:** every Feature Manager has an evidence-backed execution
+review; remaining Main Actor work has a clear UI, short-coordination, or
+documented API requirement; and substantive off-main work has an identifiable
+owner. Resolve findings within the agreed scope or record explicitly approved
+deferrals. Build and test any corrections, obtain manual approval for affected
+flows, and update the feature behaviour report with remaining verification
+gaps. A clean review may require no code changes. This is an ownership audit,
+not proof of faster performance or a guarantee that the main thread never
+blocks.
