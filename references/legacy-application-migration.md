@@ -554,3 +554,54 @@ flows, and update the feature behaviour report with remaining verification
 gaps. A clean review may require no code changes. This is an ownership audit,
 not proof of faster performance or a guarantee that the main thread never
 blocks.
+
+## Pass Fifteen: Evaluate Concurrency and Refine Where Needed
+
+Review how concurrent operations behave together across the finished codebase,
+not merely where individual functions execute. Use the existing concurrency
+inventory and behaviour contract as the starting point. Pass Fourteen examines
+Main Actor ownership; this pass checks the correctness and cooperation of the
+whole workflow after those refinements.
+
+Trace concurrent startup, rapid repeated input, overlapping loads and saves,
+replacement, cancellation, screen dismissal, failure, and retry. For each
+relevant workflow, establish:
+
+- which operations should run independently and which require explicit order;
+- who owns each Task, how long it lives, and how it ends;
+- whether assumptions remain valid after suspension, including protection
+  against stale results and partially updated state;
+- whether shared mutable values remain correctly isolated across boundaries;
+- whether cancelled or failed operations release resources and leave an honest,
+  recoverable state; and
+- whether repeated requests, task chains, streams, or polling can accumulate
+  unnecessary work or unbounded memory.
+
+Check that cancellation reaches the work it is intended to stop without
+discarding durable commands. Verify that independent work has not become
+accidentally serial, and that actor isolation is not mistaken for transaction
+atomicity or submission ordering. Review retained task handles, continuations,
+priorities, and execution dependencies where present. Preserve appropriate
+framework scheduling for timing-sensitive operations; adding more Tasks or
+yield calls is not an improvement by itself.
+
+Record concrete findings with their owner, observable consequence, proposed
+correction, and verification. Implement justified refinements in small steps,
+preserving AppBrain ownership and KISS. Agree on intentional product changes
+before making them. Do not rewrite working concurrency simply to increase its
+use or introduce a new abstraction without a clear benefit.
+
+Add focused tests for identified races or lifetime failures, using controlled
+suspension and explicit event ordering where possible. Re-run relevant real
+implementation tests, complete concurrency checking, and the regression suite.
+Exercise affected user flows manually and use runtime measurements for
+performance claims. Repeat the review after corrections; stop when no concrete
+unresolved finding remains rather than inventing more work.
+
+**Completion gate:** reviewed workflows have documented ordering, isolation,
+cancellation, and lifetime guarantees; identified defects are corrected and
+verified or explicitly approved for deferral; tests pass; and affected flows
+have manual approval. Update the concurrency inventory, ledger, and feature
+behaviour report with evidence and remaining verification gaps. A clean review
+may require no implementation changes. Passing tests alone does not prove the
+absence of every concurrency defect.
