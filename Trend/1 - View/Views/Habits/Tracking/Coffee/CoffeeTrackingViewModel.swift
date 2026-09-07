@@ -12,7 +12,7 @@ final class CoffeeTrackingViewModel {
     var errorMessage: String?
 
     init(
-        habitsFeature: any HabitsFeature = AppBrain.shared.habitsFeature
+        habitsFeature: any HabitsFeature = AppModel.shared.habitsFeature
     ) {
         self.habitsFeature = habitsFeature
     }

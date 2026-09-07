@@ -4,12 +4,12 @@ import Foundation
 
 /// The composition root for the application.
 ///
-/// AppBrain chooses and connects feature managers. Application behavior lives
+/// AppModel chooses and connects feature managers. Application behavior lives
 /// in those features rather than accumulating in this assembly type.
 @MainActor
-final class AppBrain {
+final class AppModel {
     /// The single production dependency graph used by the running app.
-    static let shared = AppBrain.live()
+    static let shared = AppModel.live()
 
     let weightEntries: any WeightEntryFeature
     let progressFeature: any ProgressFeature
@@ -35,9 +35,9 @@ final class AppBrain {
         self.dailyTips = dailyTips
     }
 
-    /// Produces the live, non-test AppBrain and assembles all production
+    /// Produces the live, non-test AppModel and assembles all production
     /// dependencies in one visible place.
-    static func live() -> AppBrain {
+    static func live() -> AppModel {
         // A function, rather than a stored Date, keeps production time moving
         // while allowing tests to provide a fixed clock.
         let currentDate: @MainActor () -> Date = { .now }
@@ -77,7 +77,7 @@ final class AppBrain {
             dailyStreak: dailyStreak,
             backupFiles: backupFiles
         )
-        return AppBrain(
+        return AppModel(
             weightEntries: weightEntries,
             progressFeature: progressFeature,
             settingsFeature: settingsFeature,
@@ -87,7 +87,7 @@ final class AppBrain {
         )
     }
 
-    /// Responds to the application completing its launch. AppBrain refreshes
+    /// Responds to the application completing its launch. AppModel refreshes
     /// feature data and installs long-lived observers in one central place.
     /// Every scene may call this safely; all callers await the same work.
     func applicationDidFinishLaunching() async {

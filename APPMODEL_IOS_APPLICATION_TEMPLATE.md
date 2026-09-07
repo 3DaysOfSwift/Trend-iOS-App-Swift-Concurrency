@@ -1,8 +1,8 @@
-# AppBrain iOS Application Template
+# AppModel iOS Application Template
 
 ## Purpose of this Document
 
-This document defines the AppBrain, Feature Manager, MVVM layered architecture
+This document defines the AppModel, Feature Manager, MVVM layered architecture
 used by Trend and intended for future 3 Days of Swift Concurrency reference
 applications. It is a free template for iOS developers and AI coding agents
 creating, changing, or reviewing maintainable production SwiftUI applications
@@ -106,8 +106,8 @@ Application
 │       └── Feature Screen
 │           ├── FeatureScreenView.swift
 │           └── FeatureScreenViewModel.swift
-├── 2 - AppBrain
-│   ├── AppBrain.swift
+├── 2 - AppModel
+│   ├── AppModel.swift
 │   ├── Features
 │   │   └── Feature Name
 │   │       ├── FeatureAPI.swift
@@ -126,7 +126,7 @@ Application
 │   └── Type+Capability.swift
 └── ApplicationTests
     ├── View model tests
-    └── AppBrain tests
+    └── AppModel tests
 ```
 
 The Xcode navigator must communicate the design without requiring a developer
@@ -177,7 +177,7 @@ place a domain type under storage merely because it is persisted.
 
 ## Maintain an Absolute UI and Model Boundary
 
-`1 - View` owns presentation. `2 - AppBrain` owns application behaviour.
+`1 - View` owns presentation. `2 - AppModel` owns application behaviour.
 
 The UI may decide:
 
@@ -203,9 +203,9 @@ The UI must not decide:
 Use this extraction test:
 
 > Imagine adding an Apple Watch target to the Xcode project. Could the team
-> create a working prototype in less than an hour without changing AppBrain or
+> create a working prototype in less than an hour without changing AppModel or
 > any of its features? Every capability and its tested business logic should
-> already exist in the Model—the AppBrain layer—and be ready for a new UI to
+> already exist in the Model—the AppModel layer—and be ready for a new UI to
 > use.
 >
 > If the Apple Watch prototype requires a business decision to be copied from
@@ -286,7 +286,7 @@ Every screen conventionally names its one direct backing object `viewModel` and
 creates it at the property declaration.
 
 The ViewModel initializer must also be quick and free of work-starting side
-effects. It may retain the feature capabilities it needs from `AppBrain.shared`,
+effects. It may retain the feature capabilities it needs from `AppModel.shared`,
 but loading and other asynchronous work begin only through an explicit method.
 `@State` associates the ViewModel with the screen's SwiftUI identity so the same
 logical screen continues to observe its existing ViewModel across redraws.
@@ -302,10 +302,10 @@ A ViewModel:
 - uses `@MainActor` and `@Observable` when it exposes UI-observed state;
 - is created and owned by its View using `@State`;
 - lives only as long as that View lives;
-- is never cached by a root ViewModel, another ViewModel, or AppBrain;
+- is never cached by a root ViewModel, another ViewModel, or AppModel;
 - never calls another ViewModel;
 - retains the smallest coherent set of narrow feature APIs required by its
-  screen rather than the complete AppBrain;
+  screen rather than the complete AppModel;
 - converts feature state into presentation-ready values;
 - accepts user intent and calls its feature API;
 - owns screen-specific error text, loading state, drafts, and presentation state;
@@ -315,7 +315,7 @@ The ViewModel initializer provides the live feature as its default while
 remaining replaceable by tests:
 
 ```swift
-init(habits: any HabitsFeature = AppBrain.shared.habitsFeature) {
+init(habits: any HabitsFeature = AppModel.shared.habitsFeature) {
     self.habits = habits
 }
 ```
@@ -334,7 +334,7 @@ feature workflow below the ViewModel boundary.
 A screen View must not receive:
 
 - a ViewModel;
-- AppBrain;
+- AppModel;
 - a feature manager;
 - a repository;
 - a closure taken from another ViewModel;
@@ -362,12 +362,12 @@ Each screen owns the sheet, alert, or navigation destination it presents. Do
 not create an application-wide router merely to move local presentation state
 away from the View.
 
-## Use AppBrain as the Composition Root and Feature Facade
+## Use AppModel as the Composition Root and Feature Facade
 
-`AppBrain.shared` is the one production application graph. This is an explicit
+`AppModel.shared` is the one production application graph. This is an explicit
 architectural decision, not an accidental global variable.
 
-AppBrain:
+AppModel:
 
 - constructs and retains one instance of each app-scoped feature manager;
 - exposes narrow feature APIs to ViewModels;
@@ -376,29 +376,29 @@ AppBrain:
   Models or conflicting feature-manager instances;
 - wires dependencies in one visible `live()` factory;
 - requires every dependency in its initializer;
-- permits isolated AppBrain graphs to be assembled in tests;
+- permits isolated AppModel graphs to be assembled in tests;
 - contains application-wide lifecycle coordination when that coordination does
   not belong to one feature;
 - contains no SwiftUI, navigation state, screen identity, or feature-specific
   business rules.
 
-AppBrain contains application-scoped state only. Scene-specific navigation,
+AppModel contains application-scoped state only. Scene-specific navigation,
 selection, drafts, focus, and presentation state remain owned by each scene's
 Views and ViewModels. The singleton guarantees shared access to the application
 graph; it does not create thread safety. Actor isolation and immutable values do
 that.
 
 Tests construct isolated application graphs and never mutate
-`AppBrain.shared`. Previews inject isolated feature implementations when they
+`AppModel.shared`. Previews inject isolated feature implementations when they
 need controlled state. Multiple production scenes use the shared graph so they
 cannot accidentally disagree about persisted application state.
 
-Do not give AppBrain every function in the application. It is a facade over
+Do not give AppModel every function in the application. It is a facade over
 coherent feature managers, not a god object. A command concerning one feature
 belongs on that feature's API and manager.
 
 Do not hide production dependency construction in default initializer values.
-`AppBrain.init` is fully explicit. `AppBrain.live()` is the only place that
+`AppModel.init` is fully explicit. `AppModel.live()` is the only place that
 chooses live repositories, clients, clocks, and feature implementations.
 
 ## Organize Behaviour into Cohesive Feature Managers
@@ -445,7 +445,7 @@ Names must let a junior developer understand what will happen without knowing
 the implementation or navigating through several nested objects.
 
 Do not expose deep object graphs such as
-`brain.progress.snapshot.chart.points`. Expose the capability or result the
+`appModel.progress.snapshot.chart.points`. Expose the capability or result the
 caller actually needs through a clear feature API.
 
 ## Keep Persistence Behind Repository Contracts
@@ -566,7 +566,7 @@ Construction must not silently trigger asynchronous side effects. Initializers
 assemble valid objects; clearly named methods perform work.
 
 The first few seconds after launch are a valuable opportunity. The user is
-looking at the first screen and deciding what to do, so AppBrain can begin
+looking at the first screen and deciding what to do, so AppModel can begin
 loading app-scoped features before the user opens them:
 
 ```swift
@@ -606,7 +606,7 @@ launch is genuinely part of that feature's domain. `DailyTipManager.refresh()`
 refreshes tips; it does not `beginLaunch()`.
 
 Tests directly test that the launch opportunity triggers the intended features
-without making AppBrain responsible for their results. Each feature manager has
+without making AppModel responsible for their results. Each feature manager has
 its own tests for successful loading, failed loading, retained failure state,
 and retry.
 
@@ -699,7 +699,7 @@ The test navigator contains two primary groups:
 
 ```text
 View model tests
-AppBrain tests
+AppModel tests
 ```
 
 Rules for tests:
@@ -709,12 +709,12 @@ Rules for tests:
 - ViewModel tests inject an isolated feature capability;
 - feature-manager tests exercise business rules and workflow coordination;
 - repository tests exercise persistence, synchronization, and failure behaviour;
-- AppBrain tests verify construction and application-wide coordination;
+- AppModel tests verify construction and application-wide coordination;
 - async functions are awaited directly in unit tests;
 - task cancellation and race-prevention behaviour receive dedicated tests;
 - clocks, repositories, and external clients use deterministic test doubles;
 - tests describe observable behaviour, not private implementation details.
-- tests that need AppBrain assemble an isolated graph and never alter the shared
+- tests that need AppModel assemble an isolated graph and never alter the shared
   production instance;
 - concurrency tests cover cancellation, stale-result prevention, reentrancy,
   and partial failure where those behaviours affect correctness.
@@ -752,14 +752,14 @@ Reject or refactor the following during review:
 - business calculations, classifications, validation, or filtering in a View;
 - reusable business rules in a ViewModel;
 - one ViewModel shared by multiple unique screens;
-- ViewModels stored by AppBrain, a root ViewModel, or another ViewModel;
-- Views receiving ViewModels, feature managers, AppBrain, or service closures;
-- ViewModels depending on the whole AppBrain instead of the smallest coherent
+- ViewModels stored by AppModel, a root ViewModel, or another ViewModel;
+- Views receiving ViewModels, feature managers, AppModel, or service closures;
+- ViewModels depending on the whole AppModel instead of the smallest coherent
   set of narrow feature APIs;
 - feature managers containing navigation, sheets, dialogs, or screen names;
 - repositories imported directly by Views or ViewModels;
-- deep chains through the AppBrain object graph;
-- default live dependencies hidden in `AppBrain.init`;
+- deep chains through the AppModel object graph;
+- default live dependencies hidden in `AppModel.init`;
 - asynchronous side effects inside initializers;
 - Task handles stored by a SwiftUI View;
 - vague lifecycle or action names such as `start`, `begin`, `process`, and
@@ -784,14 +784,14 @@ Before accepting a change, answer every question:
 2. Does every unique screen have its own adjacent ViewModel?
 3. Is each ViewModel named `viewModel`, owned with `@State`, and released with
    its View?
-4. Can every View be created without receiving a ViewModel, AppBrain, feature,
+4. Can every View be created without receiving a ViewModel, AppModel, feature,
    repository, or behavioural closure?
 5. Does every business decision live in a feature manager or lower Model layer?
 6. Would an Apple Watch app be able to reuse the decision without copying UI
    code?
 7. Does each ViewModel depend on the smallest coherent set of narrow,
    replaceable feature APIs?
-8. Does AppBrain only assemble and expose features or coordinate a genuinely
+8. Does AppModel only assemble and expose features or coordinate a genuinely
    application-wide workflow?
 9. Are persistence and external-system details behind repository contracts?
 10. Are async operations directly testable, with no Task handle stored by a

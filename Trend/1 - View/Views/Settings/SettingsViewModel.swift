@@ -15,7 +15,7 @@ final class SettingsViewModel {
     var message: String?
     var goalText = ""
 
-    init(settings: any SettingsFeature = AppBrain.shared.settingsFeature) {
+    init(settings: any SettingsFeature = AppModel.shared.settingsFeature) {
         self.settings = settings
         updateGoalText()
     }

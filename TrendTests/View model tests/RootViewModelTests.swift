@@ -8,8 +8,8 @@ import Testing
 struct RootViewModelTests {
     @Test func applicationLaunchLoadsApplicationOnlyOnce() async {
         let repository = InMemoryWeightRepository()
-        let brain = TestAppBrainFactory.make(repository: repository)
-        let viewModel = RootViewModel(appBrain: brain)
+        let appModel = TestAppModelFactory.make(repository: repository)
+        let viewModel = RootViewModel(appModel: appModel)
 
         await viewModel.applicationDidFinishLaunching()
         await viewModel.applicationDidFinishLaunching()

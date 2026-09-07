@@ -4,7 +4,7 @@ import Foundation
 import Observation
 
 /// Owns the user's visual preference. This is UI state, so it intentionally
-/// lives outside AppBrain and never influences application behaviour.
+/// lives outside AppModel and never influences application behaviour.
 @MainActor
 @Observable
 final class ThemeManager {

@@ -99,7 +99,7 @@ struct ProgressInsightsTests {
         #expect(result.averageKilograms == 81)
     }
 
-    @Test func chartDomainPreparedByAppBrainIncludesGoal() async {
+    @Test func chartDomainPreparedByAppModelIncludesGoal() async {
         let now = Date(timeIntervalSince1970: 10_000_000)
         let entries = [82.0, 81.0, 80.0].enumerated().map { offset, weight in
             WeightEntry(

@@ -13,7 +13,7 @@ enum HabitTemplate: String, CaseIterable, Identifiable, Sendable {
 
     var id: String { rawValue }
 
-    /// The AppBrain owns valid values so every future UI (including watchOS)
+    /// The AppModel owns valid values so every future UI (including watchOS)
     /// observes the same business rules.
     var recordingPolicy: HabitRecordingPolicy {
         switch self {

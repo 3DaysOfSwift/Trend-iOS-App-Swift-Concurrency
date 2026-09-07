@@ -9,8 +9,8 @@ struct HistoryViewModelTests {
     @Test func exposesLoadedEntriesStateAndUnit() async {
         let entry = WeightEntry(date: .now, kilograms: 75)
         let repository = InMemoryWeightRepository(store: .init(entries: [entry], goalKilograms: nil))
-        let brain = TestAppBrainFactory.make(repository: repository, unit: .pounds)
-        let viewModel = HistoryViewModel(history: brain.weightEntries)
+        let appModel = TestAppModelFactory.make(repository: repository, unit: .pounds)
+        let viewModel = HistoryViewModel(history: appModel.weightEntries)
 
         await viewModel.refresh()
 
@@ -21,14 +21,14 @@ struct HistoryViewModelTests {
     @Test func deleteRemovesEntryAndRefreshesProgress() async throws {
         let entry = WeightEntry(date: .now, kilograms: 75)
         let repository = InMemoryWeightRepository(store: .init(entries: [entry], goalKilograms: nil))
-        let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.applicationDidFinishLaunching()
-        let viewModel = HistoryViewModel(history: brain.weightEntries)
+        let appModel = TestAppModelFactory.make(repository: repository)
+        await appModel.applicationDidFinishLaunching()
+        let viewModel = HistoryViewModel(history: appModel.weightEntries)
 
         await viewModel.delete(entry)
 
         #expect(viewModel.entries.isEmpty)
-        #expect(brain.progressFeature.progressSnapshot == .empty)
+        #expect(appModel.progressFeature.progressSnapshot == .empty)
         #expect(viewModel.errorMessage == nil)
     }
 
@@ -38,9 +38,9 @@ struct HistoryViewModelTests {
             store: .init(entries: [entry], goalKilograms: nil),
             saveError: .saveFailed
         )
-        let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.applicationDidFinishLaunching()
-        let viewModel = HistoryViewModel(history: brain.weightEntries)
+        let appModel = TestAppModelFactory.make(repository: repository)
+        await appModel.applicationDidFinishLaunching()
+        let viewModel = HistoryViewModel(history: appModel.weightEntries)
 
         await viewModel.delete(entry)
 
@@ -50,7 +50,7 @@ struct HistoryViewModelTests {
 
     @Test func refreshExposesLoadFailure() async {
         let repository = InMemoryWeightRepository(loadError: .loadFailed)
-        let viewModel = HistoryViewModel(history: TestAppBrainFactory.make(repository: repository).weightEntries)
+        let viewModel = HistoryViewModel(history: TestAppModelFactory.make(repository: repository).weightEntries)
 
         await viewModel.refresh()
 

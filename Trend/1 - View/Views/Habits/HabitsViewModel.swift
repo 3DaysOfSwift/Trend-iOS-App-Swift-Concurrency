@@ -13,8 +13,8 @@ final class HabitsViewModel {
     var isChoosingHabits = false
 
     init(
-        habitsFeature: any HabitsFeature = AppBrain.shared.habitsFeature,
-        purchaseFeature: any PurchaseFeature = AppBrain.shared.purchaseFeature,
+        habitsFeature: any HabitsFeature = AppModel.shared.habitsFeature,
+        purchaseFeature: any PurchaseFeature = AppModel.shared.purchaseFeature,
         calendar: Calendar = .current
     ) {
         self.habitsFeature = habitsFeature

@@ -6,13 +6,13 @@ import Observation
 @MainActor
 @Observable
 final class RootViewModel {
-    private let appBrain: AppBrain
+    private let appModel: AppModel
 
-    init(appBrain: AppBrain = .shared) {
-        self.appBrain = appBrain
+    init(appModel: AppModel = .shared) {
+        self.appModel = appModel
     }
 
     func applicationDidFinishLaunching() async {
-        await appBrain.applicationDidFinishLaunching()
+        await appModel.applicationDidFinishLaunching()
     }
 }

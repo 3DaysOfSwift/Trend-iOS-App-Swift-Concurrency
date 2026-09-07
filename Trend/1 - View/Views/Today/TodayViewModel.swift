@@ -13,7 +13,7 @@ final class TodayViewModel {
     private(set) var isSaving = false
     private(set) var submittedResult: DailyCheckInResult?
 
-    init(today: any TodayFeature = AppBrain.shared.weightEntries) {
+    init(today: any TodayFeature = AppModel.shared.weightEntries) {
         self.today = today
         draft = today.makeWeightEntryDraft(editing: nil)
     }

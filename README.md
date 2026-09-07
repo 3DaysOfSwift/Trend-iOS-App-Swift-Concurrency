@@ -6,16 +6,16 @@ Trend is a complete, local-first weight tracker and a reference architecture for
 
 `View → ViewModel → Feature API → Feature Manager → Repository`
 
-That sentence is also the folder structure. Open `Trend` in Xcode and the first distinction is between `1 - View` and `2 - AppBrain`:
+That sentence is also the folder structure. Open `Trend` in Xcode and the first distinction is between `1 - View` and `2 - AppModel`:
 
 - **1 - View** contains SwiftUI and presentation state. Every screen has a folder containing its View and tightly coupled ViewModel.
-- **2 - AppBrain** contains the composition root and the layers beneath it: feature APIs, feature managers, domain types, repository contracts, and storage implementations.
+- **2 - AppModel** contains the composition root and the layers beneath it: feature APIs, feature managers, domain types, repository contracts, and storage implementations.
 - **3 - App Resources** contains assets, privacy metadata, and entitlements.
 - **4 - Swift Extensions** contains reusable extensions of Swift and Foundation types. SwiftUI-specific extensions remain in `1 - View`.
 
 ViewModels and UI-readable feature managers use Apple's Observation framework. Views own their `@Observable` ViewModel with `@State` and create an `@Bindable` projection only when a control requires a binding. The project therefore contains no Combine publisher forwarding or `@Published` state.
 
-Read the complete [`AppBrain iOS Application Template`](APPBRAIN_IOS_APPLICATION_TEMPLATE.md) for the reusable rules and [`ARCHITECTURE.md`](ARCHITECTURE.md) for Trend's concrete implementation. The repository is also an installable [`appbrain-ios-template` skill](SKILL.md) that applies the same rules when an AI coding agent creates, changes, or reviews an iOS application.
+Read the complete [`AppModel iOS Application Template`](APPMODEL_IOS_APPLICATION_TEMPLATE.md) for the reusable rules and [`ARCHITECTURE.md`](ARCHITECTURE.md) for Trend's concrete implementation. The repository is also an installable [`appmodel-ios-template` skill](SKILL.md) that applies the same rules when an AI coding agent creates, changes, or reviews an iOS application.
 
 ## iCloud sync
 

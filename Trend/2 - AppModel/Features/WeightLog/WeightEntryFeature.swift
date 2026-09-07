@@ -37,7 +37,7 @@ protocol HistoryFeature: AnyObject {
     func refresh() async
 }
 
-/// The complete weight-entry capability retained by AppBrain. Each ViewModel
+/// The complete weight-entry capability retained by AppModel. Each ViewModel
 /// depends on the narrower protocol that describes only what its screen needs.
 @MainActor
 protocol WeightEntryFeature: TodayFeature, WeightEntryEditorFeature, HistoryFeature {}

@@ -8,7 +8,7 @@ import Observation
 final class ProgressViewModel {
     private let progress: any ProgressFeature
 
-    init(progress: any ProgressFeature = AppBrain.shared.progressFeature) {
+    init(progress: any ProgressFeature = AppModel.shared.progressFeature) {
         self.progress = progress
     }
 

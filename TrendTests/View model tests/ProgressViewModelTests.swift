@@ -13,9 +13,9 @@ struct ProgressViewModelTests {
             WeightEntry(date: now, kilograms: 80)
         ]
         let repository = InMemoryWeightRepository(store: .init(entries: entries, goalKilograms: 75))
-        let brain = TestAppBrainFactory.make(repository: repository, unit: .pounds)
-        await brain.applicationDidFinishLaunching()
-        let viewModel = ProgressViewModel(progress: brain.progressFeature)
+        let appModel = TestAppModelFactory.make(repository: repository, unit: .pounds)
+        await appModel.applicationDidFinishLaunching()
+        let viewModel = ProgressViewModel(progress: appModel.progressFeature)
 
         #expect(viewModel.snapshot.points.map(\.kilograms) == [82, 80])
         #expect(viewModel.snapshot.changeKilograms == -2)
@@ -25,8 +25,8 @@ struct ProgressViewModelTests {
     }
 
     @Test func changingRangeDelegatesToProgressFeature() async {
-        let brain = TestAppBrainFactory.make()
-        let viewModel = ProgressViewModel(progress: brain.progressFeature)
+        let appModel = TestAppModelFactory.make()
+        let viewModel = ProgressViewModel(progress: appModel.progressFeature)
 
         viewModel.range = .all
         let timeout = ContinuousClock.now.advanced(by: .seconds(1))

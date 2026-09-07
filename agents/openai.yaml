@@ -1,4 +1,4 @@
 interface:
-  display_name: "AppBrain iOS Template"
-  short_description: "Build maintainable AppBrain SwiftUI apps"
-  default_prompt: "Use $appbrain-ios-template to structure this SwiftUI application around AppBrain and clear feature ownership."
+  display_name: "AppModel iOS Template"
+  short_description: "Build maintainable AppModel SwiftUI apps"
+  default_prompt: "Use $appmodel-ios-template to structure this SwiftUI application around AppModel and clear feature ownership."

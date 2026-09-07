@@ -9,7 +9,7 @@ final class HistoryViewModel {
     private let history: any HistoryFeature
     var errorMessage: String?
 
-    init(history: any HistoryFeature = AppBrain.shared.weightEntries) {
+    init(history: any HistoryFeature = AppModel.shared.weightEntries) {
         self.history = history
     }
 

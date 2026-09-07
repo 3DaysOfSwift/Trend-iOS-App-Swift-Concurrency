@@ -14,7 +14,7 @@ final class EntryEditorViewModel {
     private(set) var isSaving = false
 
     init(
-        editor: any WeightEntryEditorFeature = AppBrain.shared.weightEntries,
+        editor: any WeightEntryEditorFeature = AppModel.shared.weightEntries,
         entry: WeightEntry? = nil
     ) {
         self.editor = editor

@@ -8,10 +8,10 @@ import Testing
 struct SettingsViewModelTests {
     @Test func initialStateReflectsStoredGoalAndUnit() async {
         let repository = InMemoryWeightRepository(store: .init(entries: [], goalKilograms: 70))
-        let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.applicationDidFinishLaunching()
+        let appModel = TestAppModelFactory.make(repository: repository)
+        await appModel.applicationDidFinishLaunching()
 
-        let viewModel = SettingsViewModel(settings: brain.settingsFeature)
+        let viewModel = SettingsViewModel(settings: appModel.settingsFeature)
 
         #expect(viewModel.unit == .kilograms)
         #expect(viewModel.goalText == "70.0")
@@ -23,9 +23,9 @@ struct SettingsViewModelTests {
 
     @Test func changingUnitConvertsGoalText() async {
         let repository = InMemoryWeightRepository(store: .init(entries: [], goalKilograms: 45.359237))
-        let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.applicationDidFinishLaunching()
-        let viewModel = SettingsViewModel(settings: brain.settingsFeature)
+        let appModel = TestAppModelFactory.make(repository: repository)
+        await appModel.applicationDidFinishLaunching()
+        let viewModel = SettingsViewModel(settings: appModel.settingsFeature)
 
         viewModel.unit = .pounds
 
@@ -35,7 +35,7 @@ struct SettingsViewModelTests {
 
     @Test func refreshCloudStatusPublishesProviderValue() async {
         let repository = InMemoryWeightRepository(cloudStatus: .available)
-        let viewModel = SettingsViewModel(settings: TestAppBrainFactory.make(repository: repository).settingsFeature)
+        let viewModel = SettingsViewModel(settings: TestAppModelFactory.make(repository: repository).settingsFeature)
 
         await viewModel.refreshCloudStatus()
 
@@ -44,18 +44,18 @@ struct SettingsViewModelTests {
 
     @Test func validGoalIsSavedInCanonicalKilograms() async {
         let repository = InMemoryWeightRepository()
-        let brain = TestAppBrainFactory.make(repository: repository, unit: .pounds)
-        let viewModel = SettingsViewModel(settings: brain.settingsFeature)
+        let appModel = TestAppModelFactory.make(repository: repository, unit: .pounds)
+        let viewModel = SettingsViewModel(settings: appModel.settingsFeature)
         viewModel.goalText = "154.3"
 
         await viewModel.saveGoal()
 
-        #expect(abs((brain.settingsFeature.goalWeightKilograms ?? 0) - 69.989) < 0.01)
+        #expect(abs((appModel.settingsFeature.goalWeightKilograms ?? 0) - 69.989) < 0.01)
         #expect(viewModel.message == nil)
     }
 
     @Test func invalidGoalShowsValidationMessage() async {
-        let viewModel = SettingsViewModel(settings: TestAppBrainFactory.make().settingsFeature)
+        let viewModel = SettingsViewModel(settings: TestAppModelFactory.make().settingsFeature)
         viewModel.goalText = "10"
 
         await viewModel.saveGoal()
@@ -64,7 +64,7 @@ struct SettingsViewModelTests {
     }
 
     @Test func goalSaveAvailabilityUsesTheSameValidationAsSaving() {
-        let viewModel = SettingsViewModel(settings: TestAppBrainFactory.make().settingsFeature)
+        let viewModel = SettingsViewModel(settings: TestAppModelFactory.make().settingsFeature)
 
         viewModel.goalText = "10"
         #expect(!viewModel.canSaveGoal)
@@ -75,9 +75,9 @@ struct SettingsViewModelTests {
 
     @Test func exportProducesJSONDocumentAndOpensExporter() async {
         let repository = InMemoryWeightRepository(store: .init(entries: [], goalKilograms: 70))
-        let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.applicationDidFinishLaunching()
-        let viewModel = SettingsViewModel(settings: brain.settingsFeature)
+        let appModel = TestAppModelFactory.make(repository: repository)
+        await appModel.applicationDidFinishLaunching()
+        let viewModel = SettingsViewModel(settings: appModel.settingsFeature)
 
         await viewModel.prepareExport()
 
@@ -87,7 +87,7 @@ struct SettingsViewModelTests {
     }
 
     @Test func importPickerFailureIsPresented() async {
-        let viewModel = SettingsViewModel(settings: TestAppBrainFactory.make().settingsFeature)
+        let viewModel = SettingsViewModel(settings: TestAppModelFactory.make().settingsFeature)
         let error = CocoaError(.fileReadCorruptFile)
 
         await viewModel.importFile(.failure(error))
@@ -98,14 +98,14 @@ struct SettingsViewModelTests {
     @Test func deleteAllClearsEntriesGoalAndText() async {
         let entry = WeightEntry(date: .now, kilograms: 80)
         let repository = InMemoryWeightRepository(store: .init(entries: [entry], goalKilograms: 70))
-        let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.applicationDidFinishLaunching()
-        let viewModel = SettingsViewModel(settings: brain.settingsFeature)
+        let appModel = TestAppModelFactory.make(repository: repository)
+        await appModel.applicationDidFinishLaunching()
+        let viewModel = SettingsViewModel(settings: appModel.settingsFeature)
 
         await viewModel.deleteAllData()
 
-        #expect(brain.weightEntries.entries.isEmpty)
-        #expect(brain.settingsFeature.goalWeightKilograms == nil)
+        #expect(appModel.weightEntries.entries.isEmpty)
+        #expect(appModel.settingsFeature.goalWeightKilograms == nil)
         #expect(viewModel.goalText.isEmpty)
     }
 
@@ -115,13 +115,13 @@ struct SettingsViewModelTests {
             store: .init(entries: [entry], goalKilograms: 70),
             saveError: .saveFailed
         )
-        let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.applicationDidFinishLaunching()
-        let viewModel = SettingsViewModel(settings: brain.settingsFeature)
+        let appModel = TestAppModelFactory.make(repository: repository)
+        await appModel.applicationDidFinishLaunching()
+        let viewModel = SettingsViewModel(settings: appModel.settingsFeature)
 
         await viewModel.deleteAllData()
 
-        #expect(brain.weightEntries.entries == [entry])
+        #expect(appModel.weightEntries.entries == [entry])
         #expect(viewModel.goalText == "70.0")
         #expect(viewModel.message == "The test repository could not save.")
     }

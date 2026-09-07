@@ -14,7 +14,7 @@ struct TrendApp: App {
                     .preferredColorScheme(themeManager.selectedTheme.colourScheme)
                     .animation(.easeInOut(duration: 0.35), value: themeManager.selectedTheme)
             } else {
-                // Unit tests inject isolated AppBrain instances. Keeping the live
+                // Unit tests inject isolated AppModel instances. Keeping the live
                 // root dormant prevents a test-host launch from opening CloudKit
                 // or the developer's real simulator data store.
                 Color.clear

@@ -77,24 +77,24 @@ shared between unique screens, no code was duplicated to create the new
 boundaries, affected ViewModels can be tested independently, and every business
 rule temporarily staged in a ViewModel appears in the migration ledger.
 
-## Pass Two: Introduce AppBrain as a Transitional Shared Store
+## Pass Two: Introduce AppModel as a Transitional Shared Store
 
-Add `AppBrain.shared` as the single production composition root. Initially it
+Add `AppModel.shared` as the single production composition root. Initially it
 may act as a deliberately untidy staging area for shared Model objects and
 behaviour discovered during migration. This is temporary and must be stated in
 the migration plan; it is not the completed architecture.
 
-Record every object and behaviour staged in AppBrain in the migration ledger,
+Record every object and behaviour staged in AppModel in the migration ledger,
 including its intended Feature Manager and the pass in which it will move.
 
 Connect each ViewModel to the required capability through a default initializer
-value supplied by `AppBrain.shared`. Do not pass AppBrain, services, ViewModels,
+value supplied by `AppModel.shared`. Do not pass AppModel, services, ViewModels,
 or behavioural closures through View initializers. Do not move navigation or
-screen presentation state into AppBrain.
+screen presentation state into AppModel.
 
 **Completion gate:** every screen that requires Model capabilities reaches them
-through the single AppBrain graph, AppBrain contains no UI or navigation state,
-and every transitional AppBrain responsibility has a named final owner in the
+through the single AppModel graph, AppModel contains no UI or navigation state,
+and every transitional AppModel responsibility has a named final owner in the
 ledger.
 
 ## Pass Three: Extract Feature Managers
@@ -105,7 +105,7 @@ manager merely for every noun or control visible in the UI. Connect each
 ViewModel to the narrow feature capability it uses.
 
 Move business rules from Views, ViewModels, legacy managers, and the temporary
-AppBrain staging area into the Feature Manager that owns the feature. Move
+AppModel staging area into the Feature Manager that owns the feature. Move
 storage and device interactions behind repository contracts. Preserve one
 authoritative state owner and add focused tests for every extracted rule.
 
@@ -113,22 +113,22 @@ Do not split one feature through several managers unless each additional type
 has a concrete responsibility whose maintenance benefit outweighs its cost.
 
 **Completion gate:** no known business rule remains in a View, ViewModel, or
-temporary AppBrain staging area; every feature has one understandable public
+temporary AppModel staging area; every feature has one understandable public
 capability; shared state has one authoritative owner; repositories contain no
 application decisions; and extracted rules have focused tests.
 
 ## Pass Four: Tidy the Architecture
 
-Repeat focused evaluation passes over AppBrain, Feature Managers, ViewModels,
+Repeat focused evaluation passes over AppModel, Feature Managers, ViewModels,
 repositories, and folders. Remove transitional code, duplicate state, deep
-access chains, vague types, and misplaced responsibilities. AppBrain should end
+access chains, vague types, and misplaced responsibilities. AppModel should end
 as an elegant composition root and feature facade rather than a dumping ground.
 
-Compare the result against every item in the canonical AppBrain Review
+Compare the result against every item in the canonical AppModel Review
 Checklist. Build the application and run the complete relevant test suite after
 each material extraction.
 
-**Completion gate:** the canonical AppBrain Review Checklist passes, the
+**Completion gate:** the canonical AppModel Review Checklist passes, the
 migration ledger contains no unresolved architectural staging item, the folder
 structure reflects actual ownership, and the complete relevant test suite
 passes. When this gate is satisfied, recommend a Git milestone commit. Create
@@ -196,8 +196,8 @@ audio adapters, and timing collaborators beneath their owning feature folder.
 Technical categories may remain as subfolders within that feature.
 
 Folder ownership does not merge responsibilities: a repository still owns
-storage, and AppBrain.live() still constructs the production dependencies.
-AppBrain itself remains the application-wide composition root. A genuinely
+storage, and AppModel.live() still constructs the production dependencies.
+AppModel itself remains the application-wide composition root. A genuinely
 shared collaborator may remain outside one feature, but document its actual
 consumers and responsibility. Potential future reuse is not a reason to remove
 a file from its current feature owner. UI types and resources retain their
@@ -214,7 +214,7 @@ the application builds and its relevant tests pass after the moves.
 ## Pass Eight: Refine Test-grouping Folders and Plan Further Refinement Iterations
 
 Group tests by the responsibility they verify, reflecting the new architecture.
-Keep AppBrain construction and application-wide coordination tests separate
+Keep AppModel construction and application-wide coordination tests separate
 from feature-manager tests, repository tests, and screen ViewModel tests.
 Split mixed suites so each ViewModel has its own focused suite. Place test
 doubles beside their consuming tests when local, or in clearly named shared
@@ -328,7 +328,7 @@ complete merely because methods now contain async and await.
 
 After every pass, ask:
 
-> Evaluate the current architecture of the project against the AppBrain iOS
+> Evaluate the current architecture of the project against the AppModel iOS
 > Application Template. Do you consider this migration complete? Identify every
 > accepted temporary violation, newly introduced violation, resolved violation,
 > remaining blocker, duplicated responsibility, behavioural risk, and untested
@@ -434,7 +434,7 @@ Retain existing business and concurrency tests, including cancellation on owner
 destruction, and manually check screen recreation, bindings, and dismissal.
 
 Follow Apple's [Observation migration guide](https://developer.apple.com/documentation/swiftui/migrating-from-the-observable-object-protocol-to-the-observable-macro)
-for framework mechanics without changing the AppBrain ownership rules.
+for framework mechanics without changing the AppModel ownership rules.
 
 **Completion gate:** no obsolete Combine observation remains in production or
 tests; shared feature changes reach every consuming screen through its own
@@ -587,7 +587,7 @@ yield calls is not an improvement by itself.
 
 Record concrete findings with their owner, observable consequence, proposed
 correction, and verification. Implement justified refinements in small steps,
-preserving AppBrain ownership and KISS. Agree on intentional product changes
+preserving AppModel ownership and KISS. Agree on intentional product changes
 before making them. Do not rewrite working concurrency simply to increase its
 use or introduce a new abstraction without a clear benefit.
 
@@ -613,7 +613,7 @@ needs, not a single evaluation followed by one batch of edits. Keep Pass Sixteen
 open until the developer reviews the latest evaluation and confirms that there
 are no further edits they want to perform.
 
-Evaluate the completed application against the canonical AppBrain template:
+Evaluate the completed application against the canonical AppModel template:
 are its files, state, decisions, and execution responsibilities owned by the
 correct types and layers? Review the implementation as it exists now, not just
 the folder diagram or the intentions recorded during migration.
@@ -631,14 +631,14 @@ Check these boundaries explicitly:
   exercise feature commands rather than depend on unrestricted mutation.
 - **ViewModel dependencies:** each unique screen has its own adjacent ViewModel,
   conventionally named viewModel in the View. Its initializer accepts the narrow
-  feature capabilities it needs, defaulting to AppBrain.shared, rather than
-  accepting the entire AppBrain merely to extract one feature.
+  feature capabilities it needs, defaulting to AppModel.shared, rather than
+  accepting the entire AppModel merely to extract one feature.
 - **UI and Model separation:** extract repeated domain interpretation from
   ViewModels into simple feature queries. Keep layout, formatting, highlighting,
   animation, and rendering in presentation. Off-main execution does not turn
   presentation work into business logic.
 - **Folder and type ownership:** feature-specific domain values, repositories,
-  and execution collaborators remain beneath their owning feature. AppBrain
+  and execution collaborators remain beneath their owning feature. AppModel
   assembles and exposes features; it does not absorb their rules. Test grouping
   and architecture diagrams must reflect the actual boundaries.
 
@@ -652,7 +652,7 @@ Apply KISS: keep cohesive features together, add no manager or wrapper merely
 to shorten a file, and retain working boundaries. Add focused tests for corrected
 invariants and alternate command paths. Update test construction to use the
 same narrow feature boundaries as production, while retaining dedicated
-AppBrain composition tests.
+AppModel composition tests.
 
 ### Repeat the Review and Refinement Cycle
 

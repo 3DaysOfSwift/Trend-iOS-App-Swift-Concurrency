@@ -8,7 +8,7 @@ import Observation
 final class HabitHistoryViewModel {
     private let habitsFeature: any HabitsFeature
 
-    init(habitsFeature: any HabitsFeature = AppBrain.shared.habitsFeature) {
+    init(habitsFeature: any HabitsFeature = AppModel.shared.habitsFeature) {
         self.habitsFeature = habitsFeature
     }
 

@@ -12,7 +12,7 @@ final class HabitLibraryViewModel {
     var errorMessage: String?
     var isSaving = false
 
-    init(habitsFeature: any HabitsFeature = AppBrain.shared.habitsFeature) {
+    init(habitsFeature: any HabitsFeature = AppModel.shared.habitsFeature) {
         self.habitsFeature = habitsFeature
         selection = Set(habitsFeature.habits.map(\.id))
     }

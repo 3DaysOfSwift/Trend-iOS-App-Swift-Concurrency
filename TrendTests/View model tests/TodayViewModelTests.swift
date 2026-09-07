@@ -6,10 +6,10 @@ import Testing
 
 @MainActor
 struct TodayViewModelTests {
-    @Test func newDraftAndDateBoundaryComeFromAppBrainClock() {
+    @Test func newDraftAndDateBoundaryComeFromAppModelClock() {
         let now = Date(timeIntervalSince1970: 1_000)
         let viewModel = TodayViewModel(
-            today: TestAppBrainFactory.make(currentDate: { now }).weightEntries
+            today: TestAppModelFactory.make(currentDate: { now }).weightEntries
         )
 
         #expect(viewModel.draft.date == now)
@@ -17,7 +17,7 @@ struct TodayViewModelTests {
     }
 
     @Test func emptyStateHasNoLatestEntryOrChange() {
-        let viewModel = TodayViewModel(today: TestAppBrainFactory.make().weightEntries)
+        let viewModel = TodayViewModel(today: TestAppModelFactory.make().weightEntries)
 
         #expect(viewModel.latestEntry == nil)
         #expect(viewModel.changeKilograms == nil)
@@ -29,9 +29,9 @@ struct TodayViewModelTests {
         let older = WeightEntry(date: now.addingTimeInterval(-86_400), kilograms: 82)
         let latest = WeightEntry(date: now, kilograms: 80)
         let repository = InMemoryWeightRepository(store: .init(entries: [older, latest], goalKilograms: nil))
-        let brain = TestAppBrainFactory.make(repository: repository, unit: .pounds)
-        await brain.applicationDidFinishLaunching()
-        let viewModel = TodayViewModel(today: brain.weightEntries)
+        let appModel = TestAppModelFactory.make(repository: repository, unit: .pounds)
+        await appModel.applicationDidFinishLaunching()
+        let viewModel = TodayViewModel(today: appModel.weightEntries)
 
         #expect(viewModel.latestEntry == latest)
         #expect(viewModel.changeKilograms == -2)
@@ -40,8 +40,8 @@ struct TodayViewModelTests {
 
     @Test func savingWeightPublishesEntryAndKeepsSubmittedDraft() async {
         let repository = InMemoryWeightRepository()
-        let brain = TestAppBrainFactory.make(repository: repository)
-        let viewModel = TodayViewModel(today: brain.weightEntries)
+        let appModel = TestAppModelFactory.make(repository: repository)
+        let viewModel = TodayViewModel(today: appModel.weightEntries)
         viewModel.draft = WeightEntryDraft(
             date: Date(timeIntervalSince1970: 456),
             value: "72.5",
@@ -51,8 +51,8 @@ struct TodayViewModelTests {
         let didSave = await viewModel.save()
 
         #expect(didSave)
-        #expect(brain.weightEntries.latestWeightEntry?.kilograms == 72.5)
-        #expect(brain.weightEntries.latestWeightEntry?.note == "Morning")
+        #expect(appModel.weightEntries.latestWeightEntry?.kilograms == 72.5)
+        #expect(appModel.weightEntries.latestWeightEntry?.note == "Morning")
         #expect(viewModel.draft.value == "72.5")
         #expect(viewModel.errorMessage == nil)
         #expect(!viewModel.isSaving)
@@ -60,7 +60,7 @@ struct TodayViewModelTests {
     }
 
     @Test func beginningAnotherCheckInCreatesFreshDraft() async {
-        let viewModel = TodayViewModel(today: TestAppBrainFactory.make().weightEntries)
+        let viewModel = TodayViewModel(today: TestAppModelFactory.make().weightEntries)
         viewModel.draft.value = "72.5"
 
         #expect(await viewModel.save())
@@ -71,7 +71,7 @@ struct TodayViewModelTests {
     }
 
     @Test func invalidWeightRemainsInDraftAndShowsMessage() async {
-        let viewModel = TodayViewModel(today: TestAppBrainFactory.make().weightEntries)
+        let viewModel = TodayViewModel(today: TestAppModelFactory.make().weightEntries)
         viewModel.draft.value = "invalid"
 
         let didSave = await viewModel.save()
@@ -84,7 +84,7 @@ struct TodayViewModelTests {
 
     @Test func persistenceFailureKeepsEnteredWeightForRetry() async {
         let repository = InMemoryWeightRepository(saveError: .saveFailed)
-        let viewModel = TodayViewModel(today: TestAppBrainFactory.make(repository: repository).weightEntries)
+        let viewModel = TodayViewModel(today: TestAppModelFactory.make(repository: repository).weightEntries)
         viewModel.draft.value = "75"
 
         let didSave = await viewModel.save()

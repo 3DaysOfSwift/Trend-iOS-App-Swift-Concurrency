@@ -5,12 +5,12 @@ import Testing
 @testable import Trend
 
 @MainActor
-struct AppBrainTests {
+struct AppModelTests {
     @Test func applicationLaunchBeginsIndependentServicesBeforeWaitingForEither() async {
         let repository = StartupProbeRepository()
-        let brain = TestAppBrainFactory.make(repository: repository)
+        let appModel = TestAppModelFactory.make(repository: repository)
         let applicationLaunch = Task { @MainActor in
-            await brain.applicationDidFinishLaunching()
+            await appModel.applicationDidFinishLaunching()
         }
 
         for _ in 0..<100 {
@@ -26,10 +26,10 @@ struct AppBrainTests {
 
     @Test func simultaneousScenesAwaitTheSameApplicationLaunchWork() async {
         let repository = StartupProbeRepository()
-        let brain = TestAppBrainFactory.make(repository: repository)
+        let appModel = TestAppModelFactory.make(repository: repository)
         let completion = CompletionProbe()
         let firstScene = Task { @MainActor in
-            await brain.applicationDidFinishLaunching()
+            await appModel.applicationDidFinishLaunching()
         }
 
         for _ in 0..<100 {
@@ -37,7 +37,7 @@ struct AppBrainTests {
             await Task.yield()
         }
         let secondScene = Task { @MainActor in
-            await brain.applicationDidFinishLaunching()
+            await appModel.applicationDidFinishLaunching()
             await completion.markCompleted()
         }
         for _ in 0..<10 { await Task.yield() }
@@ -53,50 +53,50 @@ struct AppBrainTests {
 
     @Test func goalWorkflowOwnsValidationAndUnitConversion() async throws {
         let repository = InMemoryWeightRepository()
-        let brain = TestAppBrainFactory.make(repository: repository, unit: .pounds)
+        let appModel = TestAppModelFactory.make(repository: repository, unit: .pounds)
 
-        #expect(!brain.settingsFeature.canSetGoal(from: "10"))
-        #expect(brain.settingsFeature.canSetGoal(from: "154.3"))
+        #expect(!appModel.settingsFeature.canSetGoal(from: "10"))
+        #expect(appModel.settingsFeature.canSetGoal(from: "154.3"))
 
-        try await brain.settingsFeature.setGoal(from: "154.3")
+        try await appModel.settingsFeature.setGoal(from: "154.3")
 
-        #expect(abs((brain.settingsFeature.goalWeightKilograms ?? 0) - 69.989) < 0.01)
+        #expect(abs((appModel.settingsFeature.goalWeightKilograms ?? 0) - 69.989) < 0.01)
     }
 
-    @Test func settingsCommandsRemainBehindAppBrainBoundary() async {
+    @Test func settingsCommandsRemainBehindAppModelBoundary() async {
         let repository = InMemoryWeightRepository(cloudStatus: .available)
-        let brain = TestAppBrainFactory.make(repository: repository)
+        let appModel = TestAppModelFactory.make(repository: repository)
 
-        brain.settingsFeature.setWeightUnit(.pounds)
-        await brain.settingsFeature.refreshCloudStatus()
+        appModel.settingsFeature.setWeightUnit(.pounds)
+        await appModel.settingsFeature.refreshCloudStatus()
 
-        #expect(brain.settingsFeature.selectedWeightUnit == .pounds)
-        #expect(brain.settingsFeature.cloudSyncStatus == .available)
+        #expect(appModel.settingsFeature.selectedWeightUnit == .pounds)
+        #expect(appModel.settingsFeature.cloudSyncStatus == .available)
     }
 
     @Test func rejectsWeightEntriesDatedInTheFuture() async {
         let now = Date(timeIntervalSince1970: 1_000)
-        let brain = TestAppBrainFactory.make(currentDate: { now })
+        let appModel = TestAppModelFactory.make(currentDate: { now })
         let draft = WeightEntryDraft(
             date: now.addingTimeInterval(1),
             value: "75"
         )
 
         await #expect(throws: WeightEntryManager.EntryDateError.futureDate) {
-            try await brain.weightEntries.save(draft, editing: nil)
+            try await appModel.weightEntries.save(draft, editing: nil)
         }
-        #expect(brain.weightEntries.entries.isEmpty)
+        #expect(appModel.weightEntries.entries.isEmpty)
     }
 
     @Test func savingEntryRefreshesProgress() async throws {
         let repository = InMemoryWeightRepository()
-        let brain = TestAppBrainFactory.make(repository: repository)
+        let appModel = TestAppModelFactory.make(repository: repository)
 
-        await brain.applicationDidFinishLaunching()
-        try await brain.weightEntries.save(WeightEntryDraft(value: "75"), editing: nil)
+        await appModel.applicationDidFinishLaunching()
+        try await appModel.weightEntries.save(WeightEntryDraft(value: "75"), editing: nil)
 
-        #expect(brain.weightEntries.entries.count == 1)
-        #expect(brain.progressFeature.progressSnapshot.points.count == 1)
+        #expect(appModel.weightEntries.entries.count == 1)
+        #expect(appModel.progressFeature.progressSnapshot.points.count == 1)
     }
 }
 

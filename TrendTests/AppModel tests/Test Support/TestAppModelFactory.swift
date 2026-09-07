@@ -4,12 +4,12 @@ import Foundation
 @testable import Trend
 
 @MainActor
-enum TestAppBrainFactory {
+enum TestAppModelFactory {
     static func make(
         repository: any WeightRepository & CloudSyncStatusProviding = InMemoryWeightRepository(),
         unit: WeightUnit = .kilograms,
         currentDate: @escaping @MainActor () -> Date = { .now }
-    ) -> AppBrain {
+    ) -> AppModel {
         let suiteName = "TrendTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.set(unit.rawValue, forKey: "weightUnit")
@@ -28,7 +28,7 @@ enum TestAppBrainFactory {
             dailyStreak: dailyStreak,
             currentDate: currentDate
         )
-        return AppBrain(
+        return AppModel(
             weightEntries: weightEntries,
             progressFeature: ProgressManager(
                 progress: progress,

@@ -4,7 +4,7 @@ import Foundation
 
 /// The validated input accepted by weight-log workflows.
 ///
-/// Views may build and edit this plain value, but AppBrain owns its meaning and
+/// Views may build and edit this plain value, but AppModel owns its meaning and
 /// conversion into the canonical kilograms stored by the repository.
 struct WeightEntryDraft: Sendable {
     var date = Date()

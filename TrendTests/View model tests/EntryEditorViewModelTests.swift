@@ -6,10 +6,10 @@ import Testing
 
 @MainActor
 struct EntryEditorViewModelTests {
-    @Test func newDraftAndDateBoundaryComeFromAppBrainClock() {
+    @Test func newDraftAndDateBoundaryComeFromAppModelClock() {
         let now = Date(timeIntervalSince1970: 1_000)
         let viewModel = EntryEditorViewModel(
-            editor: TestAppBrainFactory.make(currentDate: { now }).weightEntries
+            editor: TestAppModelFactory.make(currentDate: { now }).weightEntries
         )
 
         #expect(viewModel.draft.date == now)
@@ -17,8 +17,8 @@ struct EntryEditorViewModelTests {
     }
 
     @Test func newEntryStartsEmptyAndUsesCurrentUnit() {
-        let brain = TestAppBrainFactory.make(unit: .pounds)
-        let viewModel = EntryEditorViewModel(editor: brain.weightEntries)
+        let appModel = TestAppModelFactory.make(unit: .pounds)
+        let viewModel = EntryEditorViewModel(editor: appModel.weightEntries)
 
         #expect(viewModel.title == "Log Weight")
         #expect(viewModel.draft.value.isEmpty)
@@ -29,8 +29,8 @@ struct EntryEditorViewModelTests {
 
     @Test func existingEntryPopulatesEditableDraft() {
         let entry = WeightEntry(date: Date(timeIntervalSince1970: 123), kilograms: 70, note: "Morning")
-        let brain = TestAppBrainFactory.make()
-        let viewModel = EntryEditorViewModel(editor: brain.weightEntries, entry: entry)
+        let appModel = TestAppModelFactory.make()
+        let viewModel = EntryEditorViewModel(editor: appModel.weightEntries, entry: entry)
 
         #expect(viewModel.title == "Edit Entry")
         #expect(viewModel.draft.date == entry.date)
@@ -40,8 +40,8 @@ struct EntryEditorViewModelTests {
 
     @Test func savingNewEntryPersistsAndDismisses() async {
         let repository = InMemoryWeightRepository()
-        let brain = TestAppBrainFactory.make(repository: repository)
-        let viewModel = EntryEditorViewModel(editor: brain.weightEntries)
+        let appModel = TestAppModelFactory.make(repository: repository)
+        let viewModel = EntryEditorViewModel(editor: appModel.weightEntries)
         viewModel.draft = WeightEntryDraft(date: Date(timeIntervalSince1970: 456), value: "72.5", note: " Evening ")
 
         let didSave = await viewModel.save()
@@ -49,28 +49,28 @@ struct EntryEditorViewModelTests {
         #expect(didSave)
         #expect(viewModel.errorMessage == nil)
         #expect(!viewModel.isSaving)
-        #expect(brain.weightEntries.latestWeightEntry?.kilograms == 72.5)
-        #expect(brain.weightEntries.latestWeightEntry?.note == "Evening")
+        #expect(appModel.weightEntries.latestWeightEntry?.kilograms == 72.5)
+        #expect(appModel.weightEntries.latestWeightEntry?.note == "Evening")
     }
 
     @Test func savingExistingEntryUpdatesIt() async {
         let entry = WeightEntry(date: .now, kilograms: 80)
         let repository = InMemoryWeightRepository(store: .init(entries: [entry], goalKilograms: nil))
-        let brain = TestAppBrainFactory.make(repository: repository)
-        await brain.applicationDidFinishLaunching()
-        let viewModel = EntryEditorViewModel(editor: brain.weightEntries, entry: entry)
+        let appModel = TestAppModelFactory.make(repository: repository)
+        await appModel.applicationDidFinishLaunching()
+        let viewModel = EntryEditorViewModel(editor: appModel.weightEntries, entry: entry)
         viewModel.draft.value = "79"
 
         let didSave = await viewModel.save()
 
         #expect(didSave)
-        #expect(brain.weightEntries.entries.count == 1)
-        #expect(brain.weightEntries.latestWeightEntry?.kilograms == 79)
+        #expect(appModel.weightEntries.entries.count == 1)
+        #expect(appModel.weightEntries.latestWeightEntry?.kilograms == 79)
     }
 
     @Test func invalidWeightShowsValidationAndDoesNotDismiss() async {
-        let brain = TestAppBrainFactory.make()
-        let viewModel = EntryEditorViewModel(editor: brain.weightEntries)
+        let appModel = TestAppModelFactory.make()
+        let viewModel = EntryEditorViewModel(editor: appModel.weightEntries)
         viewModel.draft.value = "not a number"
 
         let didSave = await viewModel.save()
@@ -82,8 +82,8 @@ struct EntryEditorViewModelTests {
 
     @Test func repositoryFailureIsPresentedAndDoesNotDismiss() async {
         let repository = InMemoryWeightRepository(saveError: .saveFailed)
-        let brain = TestAppBrainFactory.make(repository: repository)
-        let viewModel = EntryEditorViewModel(editor: brain.weightEntries)
+        let appModel = TestAppModelFactory.make(repository: repository)
+        let viewModel = EntryEditorViewModel(editor: appModel.weightEntries)
         viewModel.draft.value = "75"
 
         let didSave = await viewModel.save()

@@ -4,7 +4,7 @@ import Charts
 import SwiftUI
 
 /// Everything the reusable branded chart needs, without giving it access to a
-/// ViewModel or the AppBrain.
+/// ViewModel or the AppModel.
 struct TrendChartData {
     let snapshot: ProgressSnapshot
     let goalKilograms: Double?

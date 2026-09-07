@@ -115,7 +115,7 @@ struct HabitsManagerTests {
         #expect(snapshot.currentStreak == 1)
     }
 
-    @Test func appBrainRejectsValuesOutsideEachHabitPolicy() async throws {
+    @Test func appModelRejectsValuesOutsideEachHabitPolicy() async throws {
         let manager = HabitsManager(repository: InMemoryHabitRepository())
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.sleep.id, HabitTemplate.wakeTime.id])
