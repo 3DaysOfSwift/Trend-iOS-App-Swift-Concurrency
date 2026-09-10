@@ -8,7 +8,7 @@ enum ProgressDirection: Sendable, Equatable {
     case worsening
 }
 
-struct ProgressSnapshot: Sendable, Equatable {
+struct WeightHistoryData: Sendable, Equatable {
     struct Point: Identifiable, Sendable, Equatable {
         let id: UUID
         let date: Date
@@ -37,7 +37,7 @@ struct ProgressSnapshot: Sendable, Equatable {
     let projectionMessage: String?
     let commentary: String
 
-    static let empty = ProgressSnapshot(
+    static let empty = WeightHistoryData(
         points: [],
         changeKilograms: nil,
         changeDirection: nil,

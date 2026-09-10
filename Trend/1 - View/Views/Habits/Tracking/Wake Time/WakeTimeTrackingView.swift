@@ -12,7 +12,7 @@ struct WakeTimeTrackingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HabitDayStreakBanner(data: viewModel.weekSnapshot, symbol: viewModel.habit.symbol)
+            HabitDayStreakBanner(data: viewModel.weekSummary, symbol: viewModel.habit.symbol)
 
             VStack(spacing: 24) {
                 Spacer()

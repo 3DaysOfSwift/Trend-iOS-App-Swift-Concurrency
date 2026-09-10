@@ -6,49 +6,23 @@ import Testing
 
 @MainActor
 struct AppModelTests {
-    @Test func applicationLaunchBeginsIndependentServicesBeforeWaitingForEither() async {
+    @Test func launchRegistersPurchasesImmediatelyAndStartsLoadsOnlyOnce() async {
         let repository = StartupProbeRepository()
-        let appModel = TestAppModelFactory.make(repository: repository)
-        let applicationLaunch = Task { @MainActor in
-            await appModel.applicationDidFinishLaunching()
-        }
+        let client = InMemoryPurchaseClient()
+        let appModel = TestAppModelFactory.make(repository: repository, purchaseClient: client)
+        appModel.applicationDidFinishLaunching()
+        #expect(client.observationCount == 1)
+        appModel.applicationDidFinishLaunching()
+        #expect(client.observationCount == 1)
 
-        for _ in 0..<100 {
+        for _ in 0..<1000 {
             if await repository.didStartBothOperations { break }
             await Task.yield()
         }
-        let bothStartedBeforeRelease = await repository.didStartBothOperations
+        #expect(await repository.didStartBothOperations)
+        #expect(await repository.loadCallCount == 1)
+        #expect(await repository.cloudStatusCallCount == 1)
         await repository.releaseOperations()
-        await applicationLaunch.value
-
-        #expect(bothStartedBeforeRelease)
-    }
-
-    @Test func simultaneousScenesAwaitTheSameApplicationLaunchWork() async {
-        let repository = StartupProbeRepository()
-        let appModel = TestAppModelFactory.make(repository: repository)
-        let completion = CompletionProbe()
-        let firstScene = Task { @MainActor in
-            await appModel.applicationDidFinishLaunching()
-        }
-
-        for _ in 0..<100 {
-            if await repository.didStartBothOperations { break }
-            await Task.yield()
-        }
-        let secondScene = Task { @MainActor in
-            await appModel.applicationDidFinishLaunching()
-            await completion.markCompleted()
-        }
-        for _ in 0..<10 { await Task.yield() }
-
-        #expect(!(await completion.isCompleted))
-
-        await repository.releaseOperations()
-        await firstScene.value
-        await secondScene.value
-
-        #expect(await completion.isCompleted)
     }
 
     @Test func goalWorkflowOwnsValidationAndUnitConversion() async throws {
@@ -92,23 +66,18 @@ struct AppModelTests {
         let repository = InMemoryWeightRepository()
         let appModel = TestAppModelFactory.make(repository: repository)
 
-        await appModel.applicationDidFinishLaunching()
-        try await appModel.weightEntries.save(WeightEntryDraft(value: "75"), editing: nil)
+        await appModel.weightEntries.refresh()
+        try await appModel.weightEntries.save(WeightEntryDraft(date: TestAppModelFactory.currentDate(), value: "75"), editing: nil)
 
         #expect(appModel.weightEntries.entries.count == 1)
         #expect(appModel.progressFeature.progressSnapshot.points.count == 1)
     }
 }
 
-private actor CompletionProbe {
-    private(set) var isCompleted = false
-
-    func markCompleted() {
-        isCompleted = true
-    }
-}
-
 private actor StartupProbeRepository: WeightRepository, CloudSyncStatusProviding {
+    private(set) var loadCallCount = 0
+    private(set) var cloudStatusCallCount = 0
+    private var released = false
     private var loadStarted = false
     private var cloudStatusStarted = false
     private var loadContinuation: CheckedContinuation<Void, Never>?
@@ -117,20 +86,23 @@ private actor StartupProbeRepository: WeightRepository, CloudSyncStatusProviding
     var didStartBothOperations: Bool { loadStarted && cloudStatusStarted }
 
     func load() async throws -> WeightStore {
+        loadCallCount += 1
         loadStarted = true
-        await withCheckedContinuation { loadContinuation = $0 }
+        if !released { await withCheckedContinuation { loadContinuation = $0 } }
         return WeightStore(entries: [], goalKilograms: nil)
     }
 
     func save(_ store: WeightStore) async throws {}
 
     func cloudStatus() async -> CloudSyncStatus {
+        cloudStatusCallCount += 1
         cloudStatusStarted = true
-        await withCheckedContinuation { cloudStatusContinuation = $0 }
+        if !released { await withCheckedContinuation { cloudStatusContinuation = $0 } }
         return .available
     }
 
     func releaseOperations() {
+        released = true
         loadContinuation?.resume()
         loadContinuation = nil
         cloudStatusContinuation?.resume()

@@ -68,7 +68,7 @@ enum HabitLoadState: Equatable {
     case failed(String)
 }
 
-struct HabitWeekSnapshot: Equatable, Sendable {
+struct HabitWeekSummary: Equatable, Sendable {
     struct Day: Identifiable, Equatable, Sendable {
         var id: Date { date }
         let date: Date

@@ -9,7 +9,8 @@ struct SettingsViewModelTests {
     @Test func initialStateReflectsStoredGoalAndUnit() async {
         let repository = InMemoryWeightRepository(store: .init(entries: [], goalKilograms: 70))
         let appModel = TestAppModelFactory.make(repository: repository)
-        await appModel.applicationDidFinishLaunching()
+        await appModel.weightEntries.refresh()
+        await appModel.settingsFeature.refreshCloudStatus()
 
         let viewModel = SettingsViewModel(settings: appModel.settingsFeature)
 
@@ -24,7 +25,8 @@ struct SettingsViewModelTests {
     @Test func changingUnitConvertsGoalText() async {
         let repository = InMemoryWeightRepository(store: .init(entries: [], goalKilograms: 45.359237))
         let appModel = TestAppModelFactory.make(repository: repository)
-        await appModel.applicationDidFinishLaunching()
+        await appModel.weightEntries.refresh()
+        await appModel.settingsFeature.refreshCloudStatus()
         let viewModel = SettingsViewModel(settings: appModel.settingsFeature)
 
         viewModel.unit = .pounds
@@ -76,7 +78,8 @@ struct SettingsViewModelTests {
     @Test func exportProducesJSONDocumentAndOpensExporter() async {
         let repository = InMemoryWeightRepository(store: .init(entries: [], goalKilograms: 70))
         let appModel = TestAppModelFactory.make(repository: repository)
-        await appModel.applicationDidFinishLaunching()
+        await appModel.weightEntries.refresh()
+        await appModel.settingsFeature.refreshCloudStatus()
         let viewModel = SettingsViewModel(settings: appModel.settingsFeature)
 
         await viewModel.prepareExport()
@@ -99,7 +102,8 @@ struct SettingsViewModelTests {
         let entry = WeightEntry(date: .now, kilograms: 80)
         let repository = InMemoryWeightRepository(store: .init(entries: [entry], goalKilograms: 70))
         let appModel = TestAppModelFactory.make(repository: repository)
-        await appModel.applicationDidFinishLaunching()
+        await appModel.weightEntries.refresh()
+        await appModel.settingsFeature.refreshCloudStatus()
         let viewModel = SettingsViewModel(settings: appModel.settingsFeature)
 
         await viewModel.deleteAllData()
@@ -116,7 +120,8 @@ struct SettingsViewModelTests {
             saveError: .saveFailed
         )
         let appModel = TestAppModelFactory.make(repository: repository)
-        await appModel.applicationDidFinishLaunching()
+        await appModel.weightEntries.refresh()
+        await appModel.settingsFeature.refreshCloudStatus()
         let viewModel = SettingsViewModel(settings: appModel.settingsFeature)
 
         await viewModel.deleteAllData()

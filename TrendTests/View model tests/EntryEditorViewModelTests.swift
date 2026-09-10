@@ -57,7 +57,7 @@ struct EntryEditorViewModelTests {
         let entry = WeightEntry(date: .now, kilograms: 80)
         let repository = InMemoryWeightRepository(store: .init(entries: [entry], goalKilograms: nil))
         let appModel = TestAppModelFactory.make(repository: repository)
-        await appModel.applicationDidFinishLaunching()
+        await appModel.weightEntries.refresh()
         let viewModel = EntryEditorViewModel(editor: appModel.weightEntries, entry: entry)
         viewModel.draft.value = "79"
 

@@ -11,6 +11,7 @@ final class InMemoryPurchaseClient: PurchaseClient {
         description: "Track the daily signals that matter to you.",
         displayPrice: "£4.99"
     )
+    private(set) var observationCount = 0
     var hasPurchased = false
     var nextOutcome: PurchaseOutcome = .purchased
     var productError: (any Error)?
@@ -35,7 +36,10 @@ final class InMemoryPurchaseClient: PurchaseClient {
 
     func hasEntitlement(for productID: String) async -> Bool { hasPurchased }
     func restore() async throws {}
-    func transactionUpdates() -> AsyncStream<Void> { updates }
+    func transactionUpdates() -> AsyncStream<Void> {
+        observationCount += 1
+        return updates
+    }
 
     func completePurchaseOutsideThePurchaseSheet() {
         hasPurchased = true

@@ -12,7 +12,7 @@ struct CoffeeTrackingView: View {
     var body: some View {
         VStack(spacing: 0) {
             HabitDayStreakBanner(
-                data: viewModel.weekSnapshot,
+                data: viewModel.weekSummary,
                 symbol: viewModel.habit.symbol,
                 showsDailyCount: true
             )

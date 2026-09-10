@@ -19,6 +19,29 @@ struct WeightLogManagerTests {
         #expect(stored.entries.first?.note == "Test")
     }
 
+    @Test func todayIsReadyWithItsStreakBeforeCloudSynchronizationCompletes() async throws {
+        let entry = WeightEntry(date: .now, kilograms: 71.2, note: "Cached")
+        let repository = DelayedSynchronizationRepository(
+            store: WeightStore(entries: [entry], goalKilograms: nil)
+        )
+        let appModel = TestAppModelFactory.make(repository: repository)
+        let viewModel = TodayViewModel(today: appModel.weightEntries)
+        viewModel.draft.value = "71"
+        #expect(!viewModel.canSave)
+
+        let loading = Task { await appModel.weightEntries.refresh() }
+        await repository.waitUntilSynchronizationStarts()
+
+        #expect(viewModel.loadState == .ready)
+        #expect(viewModel.streakSnapshot.days.count == 7)
+        #expect(viewModel.streakSnapshot.currentStreak == 1)
+        #expect(viewModel.progressSnapshot.points.count == 1)
+        #expect(viewModel.canSave)
+
+        loading.cancel()
+        await loading.value
+    }
+
     @Test func cachedEntriesArePublishedBeforeCloudSynchronizationCompletes() async throws {
         let entry = WeightEntry(date: .now, kilograms: 71.2, note: "Cached")
         let repository = DelayedSynchronizationRepository(
@@ -37,7 +60,8 @@ struct WeightLogManagerTests {
     }
 }
 
-private actor DelayedSynchronizationRepository: LocallyCachedWeightRepository {
+private actor DelayedSynchronizationRepository: LocallyCachedWeightRepository, CloudSyncStatusProviding {
+    func cloudStatus() async -> CloudSyncStatus { .available }
     private let store: WeightStore
     private var synchronizationStarted = false
     private var synchronizationWaiters: [CheckedContinuation<Void, Never>] = []

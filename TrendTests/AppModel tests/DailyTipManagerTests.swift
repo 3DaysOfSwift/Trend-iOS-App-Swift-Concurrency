@@ -81,7 +81,7 @@ struct DailyTipManagerTests {
     }
 
     private func makeManager(calendar: Calendar = .current) -> DailyTipManager {
-        DailyTipManager(defaults: makeDefaults(), calendar: calendar)
+        DailyTipManager(defaults: makeDefaults(), calendar: calendar, currentDate: TestAppModelFactory.currentDate)
     }
 
     private func makeDefaults() -> UserDefaults {

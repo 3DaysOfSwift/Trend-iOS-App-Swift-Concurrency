@@ -6,13 +6,13 @@ import Observation
 @MainActor
 @Observable
 final class RunningTrackingViewModel {
-    private let habitsFeature: any HabitsFeature
+    private let habitsFeature: HabitsManager
 
     let habit = HabitTemplate.runningDistance.habit
     var errorMessage: String?
 
     init(
-        habitsFeature: any HabitsFeature = AppModel.shared.habitsFeature
+        habitsFeature: HabitsManager = AppModel.shared.habitsFeature
     ) {
         self.habitsFeature = habitsFeature
     }
@@ -29,8 +29,9 @@ final class RunningTrackingViewModel {
         habitsFeature.todaysEntry(for: habit.id)?.occurrenceCount ?? 0
     }
 
-    var weekSnapshot: HabitWeekSnapshot {
-        habitsFeature.currentWeekSnapshot(for: habit.id)
+    // Observation dependency: `weekSummaries`
+    var weekSummary: HabitWeekSummary {
+        habitsFeature.currentWeekSummary(for: habit.id)
     }
 
     func recordRun(kilometres: Double) async -> Bool {

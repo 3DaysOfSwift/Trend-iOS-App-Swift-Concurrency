@@ -6,9 +6,9 @@ import Observation
 @MainActor
 @Observable
 final class HabitHistoryViewModel {
-    private let habitsFeature: any HabitsFeature
+    private let habitsFeature: HabitsManager
 
-    init(habitsFeature: any HabitsFeature = AppModel.shared.habitsFeature) {
+    init(habitsFeature: HabitsManager = AppModel.shared.habitsFeature) {
         self.habitsFeature = habitsFeature
     }
 

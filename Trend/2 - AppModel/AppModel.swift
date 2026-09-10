@@ -11,20 +11,20 @@ final class AppModel {
     /// The single production dependency graph used by the running app.
     static let shared = AppModel.live()
 
-    let weightEntries: any WeightEntryFeature
-    let progressFeature: any ProgressFeature
-    let settingsFeature: any SettingsFeature
-    let habitsFeature: any HabitsFeature
-    let purchaseFeature: any PurchaseFeature
+    let weightEntries: WeightEntryManager
+    let progressFeature: ProgressManager
+    let settingsFeature: SettingsManager
+    let habitsFeature: HabitsManager
+    let purchaseFeature: PurchaseManager
     private let dailyTips: DailyTipManager
-    private var applicationLaunchTask: Task<Void, Never>?
+    private var hasLaunched = false
 
     init(
-        weightEntries: any WeightEntryFeature,
-        progressFeature: any ProgressFeature,
-        settingsFeature: any SettingsFeature,
-        habitsFeature: any HabitsFeature,
-        purchaseFeature: any PurchaseFeature,
+        weightEntries: WeightEntryManager,
+        progressFeature: ProgressManager,
+        settingsFeature: SettingsManager,
+        habitsFeature: HabitsManager,
+        purchaseFeature: PurchaseManager,
         dailyTips: DailyTipManager
     ) {
         self.weightEntries = weightEntries
@@ -44,11 +44,11 @@ final class AppModel {
 
         let repository = CloudKitWeightRepository()
         let weightLog = WeightLogManager(repository: repository)
-        let progress = ProgressTracker()
+        let progress = ProgressTracker(currentDate: currentDate)
         let settings = UserSettingsStore(cloudSync: repository)
         let dailyTrend = DailyTrendManager()
-        let dailyTips = DailyTipManager()
-        let dailyStreak = DailyStreakManager(trend: dailyTrend)
+        let dailyTips = DailyTipManager(currentDate: currentDate)
+        let dailyStreak = DailyStreakManager(trend: dailyTrend, currentDate: currentDate)
         let backupFiles = BackupFileManager()
         let habits = HabitsManager(
             repository: CloudKitHabitRepository(),
@@ -87,44 +87,25 @@ final class AppModel {
         )
     }
 
-    /// Responds to the application completing its launch. AppModel refreshes
-    /// feature data and installs long-lived observers in one central place.
-    /// Every scene may call this safely; all callers await the same work.
-    func applicationDidFinishLaunching() async {
-        if let applicationLaunchTask {
-            await applicationLaunchTask.value
-            return
-        }
+    /// Registers observation immediately and starts independent loads once.
+    func applicationDidFinishLaunching() {
+        guard !hasLaunched else { return }
+        hasLaunched = true
 
-        let task = Task { @MainActor [
-            dailyTips,
-            settingsFeature,
-            weightEntries,
-            habitsFeature,
-            purchaseFeature
-        ] in
-            dailyTips.refresh() // requires immediate execution - no async behaviour required
-            purchaseFeature.observeTransactionUpdates() // requires immediate execution
+        purchaseFeature.observeTransactionUpdates()
+        dailyTips.refresh()
+        
+        Task { await purchaseFeature.refreshStoreState() }
+        Task { await settingsFeature.refreshCloudStatus() }
+        Task { await weightEntries.refresh() }
+        Task { await habitsFeature.refresh() }
+    }
+    
+    func applicationDidBecomeActive() {
+        Task { await habitsFeature.refresh() }
+    }
 
-            let cloudStatusTask = Task { @MainActor in
-                await settingsFeature.refreshCloudStatus()
-            }
-            let weightEntriesTask = Task { @MainActor in
-                await weightEntries.refresh()
-            }
-            let habitsTask = Task { @MainActor in
-                await habitsFeature.refresh()
-            }
-            let purchasesTask = Task { @MainActor in
-                await purchaseFeature.refreshStoreState()
-            }
-
-            await cloudStatusTask.value
-            await weightEntriesTask.value
-            await habitsTask.value
-            await purchasesTask.value
-        }
-        applicationLaunchTask = task
-        await task.value
+    func applicationSignificantTimeChange() {
+        Task { await habitsFeature.refresh() }
     }
 }

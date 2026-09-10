@@ -35,16 +35,19 @@ final class DailyTipManager {
     private let defaults: UserDefaults
     private let catalog: [WellnessTip]
     private let calendar: Calendar
+    private let currentDate: @MainActor () -> Date
     private(set) var currentFastingSuggestion: WellnessTip?
 
     init(
         defaults: UserDefaults = .standard,
         catalog: [WellnessTip] = WellnessTip.catalog,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        currentDate: @escaping @MainActor () -> Date
     ) {
         self.defaults = defaults
         self.catalog = catalog
         self.calendar = calendar
+        self.currentDate = currentDate
     }
 
     func nextTip() -> WellnessTip {
@@ -63,8 +66,8 @@ final class DailyTipManager {
         draw(from: WellnessTip.evolutionCatalog, key: Key.remainingEvolutionPointIDs)
     }
 
-    func whatNext(on date: Date = .now) -> WhatNextGuidance? {
-        calendar.component(.weekday, from: date) == 2 ? .standard : nil
+    func whatNext(on date: Date? = nil) -> WhatNextGuidance? {
+        calendar.component(.weekday, from: date ?? currentDate()) == 2 ? .standard : nil
     }
 
     /// Selects the optional fasting content for the current refresh cycle.

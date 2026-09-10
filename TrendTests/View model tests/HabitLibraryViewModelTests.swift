@@ -7,7 +7,7 @@ import Testing
 struct HabitLibraryViewModelTests {
     @Test func toggleAddsAndRemovesASelection() {
         let viewModel = HabitLibraryViewModel(
-            habitsFeature: HabitsManager(repository: InMemoryHabitRepository())
+            habitsFeature: HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
         )
 
         viewModel.toggle(.coffee)
@@ -17,7 +17,7 @@ struct HabitLibraryViewModelTests {
     }
 
     @Test func savePublishesTheSelectedTemplates() async {
-        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
         let viewModel = HabitLibraryViewModel(habitsFeature: manager)
         viewModel.selection = [HabitTemplate.sleep.id, HabitTemplate.water.id]
 

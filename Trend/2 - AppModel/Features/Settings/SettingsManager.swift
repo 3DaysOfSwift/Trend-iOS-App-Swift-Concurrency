@@ -4,7 +4,7 @@ import Foundation
 
 /// Owns settings, goal, backup, and whole-account data workflows.
 @MainActor
-final class SettingsManager: SettingsFeature {
+final class SettingsManager {
     private let settings: UserSettingsStore
     private let weightLog: WeightLogManager
     private let progress: ProgressTracker

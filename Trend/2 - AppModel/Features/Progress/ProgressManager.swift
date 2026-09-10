@@ -5,7 +5,7 @@ import Foundation
 /// Presents the progress feature as a complete capability without exposing the
 /// managers that calculate it or the stores that supply its inputs.
 @MainActor
-final class ProgressManager: ProgressFeature {
+final class ProgressManager {
     private let progress: ProgressTracker
     private let weightLog: WeightLogManager
     private let settings: UserSettingsStore
@@ -20,7 +20,7 @@ final class ProgressManager: ProgressFeature {
         self.settings = settings
     }
 
-    var progressSnapshot: ProgressSnapshot { progress.snapshot }
+    var progressSnapshot: WeightHistoryData { progress.snapshot }
     var goalWeightKilograms: Double? { weightLog.goalKilograms }
     var selectedWeightUnit: WeightUnit { settings.unit }
     var isPreparingProgress: Bool { progress.isLoading }

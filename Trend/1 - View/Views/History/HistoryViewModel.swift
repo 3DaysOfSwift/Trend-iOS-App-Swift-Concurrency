@@ -6,10 +6,10 @@ import Observation
 @MainActor
 @Observable
 final class HistoryViewModel {
-    private let history: any HistoryFeature
+    private let history: WeightEntryManager
     var errorMessage: String?
 
-    init(history: any HistoryFeature = AppModel.shared.weightEntries) {
+    init(history: WeightEntryManager = AppModel.shared.weightEntries) {
         self.history = history
     }
 

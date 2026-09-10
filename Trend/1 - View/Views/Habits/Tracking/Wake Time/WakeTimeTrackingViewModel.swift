@@ -6,14 +6,14 @@ import Observation
 @MainActor
 @Observable
 final class WakeTimeTrackingViewModel {
-    private let habitsFeature: any HabitsFeature
+    private let habitsFeature: HabitsManager
     private let calendar: Calendar
 
     let habit = HabitTemplate.wakeTime.habit
     var errorMessage: String?
 
     init(
-        habitsFeature: any HabitsFeature = AppModel.shared.habitsFeature,
+        habitsFeature: HabitsManager = AppModel.shared.habitsFeature,
         calendar: Calendar = .current
     ) {
         self.habitsFeature = habitsFeature
@@ -24,8 +24,9 @@ final class WakeTimeTrackingViewModel {
         habitsFeature.todaysEntry(for: habit.id) != nil
     }
 
-    var weekSnapshot: HabitWeekSnapshot {
-        habitsFeature.currentWeekSnapshot(for: habit.id)
+    // Observation dependency: `weekSummaries`
+    var weekSummary: HabitWeekSummary {
+        habitsFeature.currentWeekSummary(for: habit.id)
     }
 
     var timeForPicker: Date {

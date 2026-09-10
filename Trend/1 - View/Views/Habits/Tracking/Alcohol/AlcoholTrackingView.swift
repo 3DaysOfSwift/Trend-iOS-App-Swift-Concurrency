@@ -32,7 +32,7 @@ struct AlcoholTrackingView: View {
         .navigationBarTitleDisplayMode(.inline)
         .habitErrorAlert(message: viewModel.errorMessage, dismiss: viewModel.dismissError)
         .safeAreaInset(edge: .top, spacing: 0) {
-            HabitDayStreakBanner(data: viewModel.weekSnapshot, symbol: viewModel.habit.symbol)
+            HabitDayStreakBanner(data: viewModel.weekSummary, symbol: viewModel.habit.symbol)
         }
     }
 }

@@ -58,7 +58,8 @@ struct DailyStreakManagerTests {
     private func makeManager() -> DailyStreakManager {
         DailyStreakManager(
             trend: DailyTrendManager(calendar: calendar),
-            calendar: calendar
+            calendar: calendar,
+            currentDate: TestAppModelFactory.currentDate
         )
     }
 

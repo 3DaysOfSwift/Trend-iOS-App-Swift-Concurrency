@@ -7,7 +7,7 @@ import Testing
 @MainActor
 struct HabitsManagerTests {
     @Test func selectionUsesTemplatesAsTheActiveHabitList() async throws {
-        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
 
         try await manager.selectTemplates([HabitTemplate.coffee.id, HabitTemplate.water.id])
 
@@ -15,7 +15,7 @@ struct HabitsManagerTests {
     }
 
     @Test func twoCoffeesOnTheSameDayAccumulate() async throws {
-        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.coffee.id])
 
@@ -27,7 +27,7 @@ struct HabitsManagerTests {
     }
 
     @Test func removingAndReselectingAHabitPreservesItsHistory() async throws {
-        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.water.id])
         for _ in 0..<6 { try await manager.recordGlassOfWater(on: date) }
@@ -39,7 +39,7 @@ struct HabitsManagerTests {
     }
 
     @Test func separateRunsAccumulateDistanceAndOccurrenceCount() async throws {
-        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.runningDistance.id])
 
@@ -52,7 +52,7 @@ struct HabitsManagerTests {
     }
 
     @Test func clearingTodayRemovesTheHabitEntry() async throws {
-        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.gymRepetitions.id])
         try await manager.recordGymRepetitions(20, on: date)
@@ -70,21 +70,23 @@ struct HabitsManagerTests {
     }
 
     @Test func removingOneDecrementsThenRemovesTheDailyEntry() async throws {
-        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.coffee.id])
         try await manager.recordCoffee(on: date)
         try await manager.recordCoffee(on: date)
 
-        try await manager.removeCoffee(on: date)
-        #expect(manager.entry(for: HabitTemplate.coffee.id, on: date)?.value == 1)
+        let remainingEntry = try await manager.removeCoffee(on: date)
+        #expect(remainingEntry?.value == 1)
+        #expect(manager.entry(for: HabitTemplate.coffee.id, on: date) == remainingEntry)
 
-        try await manager.removeCoffee(on: date)
+        let removedEntry = try await manager.removeCoffee(on: date)
+        #expect(removedEntry == nil)
         #expect(manager.entry(for: HabitTemplate.coffee.id, on: date) == nil)
     }
 
     @Test func lifetimeSummaryTotalsEntriesAndKeepsTheFirstDate() async throws {
-        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
         let firstDate = Date(timeIntervalSince1970: 1_788_480_000)
         let secondDate = firstDate.addingTimeInterval(86_400)
         try await manager.selectTemplates([HabitTemplate.coffee.id])
@@ -97,26 +99,26 @@ struct HabitsManagerTests {
         #expect(summary.firstEntryDate == firstDate)
     }
 
-    @Test func weeklySnapshotAlwaysRunsFromMondayToSunday() async throws {
+    @Test func weeklySummaryAlwaysRunsFromMondayToSunday() async throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let friday = calendar.date(from: DateComponents(year: 2026, month: 9, day: 4, hour: 12))!
-        let manager = HabitsManager(repository: InMemoryHabitRepository(), calendar: calendar)
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), calendar: calendar, currentDate: TestAppModelFactory.currentDate)
         try await manager.selectTemplates([HabitTemplate.coffee.id])
         try await manager.recordCoffee(on: friday)
 
-        let snapshot = manager.weekSnapshot(for: HabitTemplate.coffee.id, on: friday)
+        let summary = await manager.weekSummary(for: HabitTemplate.coffee.id, on: friday)
 
-        #expect(snapshot.days.count == 7)
-        #expect(calendar.component(.weekday, from: snapshot.days[0].date) == 2)
-        #expect(snapshot.days[4].isToday)
-        #expect(snapshot.days[4].hasCheckIn)
-        #expect(snapshot.totalValue == 1)
-        #expect(snapshot.currentStreak == 1)
+        #expect(summary.days.count == 7)
+        #expect(calendar.component(.weekday, from: summary.days[0].date) == 2)
+        #expect(summary.days[4].isToday)
+        #expect(summary.days[4].hasCheckIn)
+        #expect(summary.totalValue == 1)
+        #expect(summary.currentStreak == 1)
     }
 
     @Test func appModelRejectsValuesOutsideEachHabitPolicy() async throws {
-        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.sleep.id, HabitTemplate.wakeTime.id])
 
@@ -129,7 +131,7 @@ struct HabitsManagerTests {
     }
 
     @Test func namedCoffeeCommandsKeepTheStoredCountConsistent() async throws {
-        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         try await manager.selectTemplates([HabitTemplate.coffee.id])
 

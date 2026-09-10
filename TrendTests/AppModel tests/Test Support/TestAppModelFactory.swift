@@ -5,20 +5,23 @@ import Foundation
 
 @MainActor
 enum TestAppModelFactory {
+    static let currentDate: @MainActor () -> Date = { .now }
+
     static func make(
         repository: any WeightRepository & CloudSyncStatusProviding = InMemoryWeightRepository(),
+        purchaseClient: InMemoryPurchaseClient = InMemoryPurchaseClient(),
         unit: WeightUnit = .kilograms,
-        currentDate: @escaping @MainActor () -> Date = { .now }
+        currentDate: @escaping @MainActor () -> Date = TestAppModelFactory.currentDate
     ) -> AppModel {
         let suiteName = "TrendTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.set(unit.rawValue, forKey: "weightUnit")
         let dailyTrend = DailyTrendManager()
         let weightLog = WeightLogManager(repository: repository)
-        let progress = ProgressTracker()
+        let progress = ProgressTracker(currentDate: currentDate)
         let settings = UserSettingsStore(cloudSync: repository, defaults: defaults)
-        let dailyTips = DailyTipManager(defaults: defaults)
-        let dailyStreak = DailyStreakManager(trend: dailyTrend)
+        let dailyTips = DailyTipManager(defaults: defaults, currentDate: currentDate)
+        let dailyStreak = DailyStreakManager(trend: dailyTrend, currentDate: currentDate)
         let weightEntries = WeightEntryManager(
             weightLog: weightLog,
             progress: progress,
@@ -42,8 +45,8 @@ enum TestAppModelFactory {
                 dailyStreak: dailyStreak,
                 backupFiles: BackupFileManager()
             ),
-            habitsFeature: HabitsManager(repository: InMemoryHabitRepository()),
-            purchaseFeature: PurchaseManager(client: InMemoryPurchaseClient()),
+            habitsFeature: HabitsManager(repository: InMemoryHabitRepository(), currentDate: currentDate),
+            purchaseFeature: PurchaseManager(client: purchaseClient),
             dailyTips: dailyTips
         )
     }

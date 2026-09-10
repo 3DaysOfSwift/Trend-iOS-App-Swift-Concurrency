@@ -6,15 +6,15 @@ import Observation
 @MainActor
 @Observable
 final class HabitsViewModel {
-    private let habitsFeature: any HabitsFeature
-    private let purchaseFeature: any PurchaseFeature
+    private let habitsFeature: HabitsManager
+    private let purchaseFeature: PurchaseManager
     private let calendar: Calendar
 
     var isChoosingHabits = false
 
     init(
-        habitsFeature: any HabitsFeature = AppModel.shared.habitsFeature,
-        purchaseFeature: any PurchaseFeature = AppModel.shared.purchaseFeature,
+        habitsFeature: HabitsManager = AppModel.shared.habitsFeature,
+        purchaseFeature: PurchaseManager = AppModel.shared.purchaseFeature,
         calendar: Calendar = .current
     ) {
         self.habitsFeature = habitsFeature

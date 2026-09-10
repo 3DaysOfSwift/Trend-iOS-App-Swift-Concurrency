@@ -7,13 +7,17 @@ import Observation
 @Observable
 final class ProgressTracker {
     private let insights: ProgressInsights
+    private let currentDate: @MainActor () -> Date
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
 
-    private(set) var snapshot: ProgressSnapshot = .empty
+    private(set) var snapshot: WeightHistoryData = .empty
     private(set) var isLoading = false
     private(set) var range: ProgressRange = .threeMonths
 
-    init(insights: ProgressInsights = ProgressInsights()) { self.insights = insights }
+    init(insights: ProgressInsights = ProgressInsights(), currentDate: @escaping @MainActor () -> Date) {
+        self.insights = insights
+        self.currentDate = currentDate
+    }
 
     func refresh(entries: [WeightEntry], goalKilograms: Double? = nil) async {
         refreshTask?.cancel()
@@ -41,7 +45,8 @@ final class ProgressTracker {
             let prepared = await insights.prepare(
                 entries: entries,
                 range: selectedRange,
-                goalKilograms: goalKilograms
+                goalKilograms: goalKilograms,
+                now: currentDate()
             )
             guard !Task.isCancelled else { return }
             snapshot = prepared

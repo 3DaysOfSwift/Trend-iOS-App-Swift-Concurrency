@@ -9,7 +9,7 @@ struct HabitsViewModelTests {
     @Test func purchaseReportsOnlyANewUnlockAsNew() async {
         let purchaseManager = PurchaseManager(client: InMemoryPurchaseClient())
         let viewModel = HabitsViewModel(
-            habitsFeature: HabitsManager(repository: InMemoryHabitRepository()),
+            habitsFeature: HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate),
             purchaseFeature: purchaseManager
         )
 
@@ -33,7 +33,7 @@ struct HabitsViewModelTests {
     }
 
     @Test func dashboardShowsAReadyStateBeforeCheckIn() async throws {
-        let manager = HabitsManager(repository: InMemoryHabitRepository())
+        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
         try await manager.selectTemplates([HabitTemplate.coffee.id])
         let viewModel = HabitsViewModel(
             habitsFeature: manager,

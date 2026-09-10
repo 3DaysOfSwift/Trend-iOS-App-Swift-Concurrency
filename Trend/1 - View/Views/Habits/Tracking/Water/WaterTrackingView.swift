@@ -45,7 +45,7 @@ struct WaterTrackingView: View {
         .habitErrorAlert(message: viewModel.errorMessage, dismiss: viewModel.dismissError)
         .sensoryFeedback(.success, trigger: feedback)
         .safeAreaInset(edge: .top, spacing: 0) {
-            HabitDayStreakBanner(data: viewModel.weekSnapshot, symbol: viewModel.habit.symbol)
+            HabitDayStreakBanner(data: viewModel.weekSummary, symbol: viewModel.habit.symbol)
         }
     }
 

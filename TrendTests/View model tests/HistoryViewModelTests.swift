@@ -22,7 +22,7 @@ struct HistoryViewModelTests {
         let entry = WeightEntry(date: .now, kilograms: 75)
         let repository = InMemoryWeightRepository(store: .init(entries: [entry], goalKilograms: nil))
         let appModel = TestAppModelFactory.make(repository: repository)
-        await appModel.applicationDidFinishLaunching()
+        await appModel.weightEntries.refresh()
         let viewModel = HistoryViewModel(history: appModel.weightEntries)
 
         await viewModel.delete(entry)
@@ -39,7 +39,7 @@ struct HistoryViewModelTests {
             saveError: .saveFailed
         )
         let appModel = TestAppModelFactory.make(repository: repository)
-        await appModel.applicationDidFinishLaunching()
+        await appModel.weightEntries.refresh()
         let viewModel = HistoryViewModel(history: appModel.weightEntries)
 
         await viewModel.delete(entry)

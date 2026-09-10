@@ -2,7 +2,7 @@
 
 import SwiftUI
 
-struct ProgressView: View {
+struct ProjectionView: View {
     @State private var viewModel = ProgressViewModel()
     @Environment(ThemeManager.self) private var themeManager
 
@@ -41,7 +41,7 @@ struct ProgressView: View {
         }
     }
 
-    private func projectionHero(snapshot: ProgressSnapshot) -> some View {
+    private func projectionHero(snapshot: WeightHistoryData) -> some View {
         VStack(spacing: 12) {
             if
                 let projectedWeight = snapshot.projectedWeightKilograms,
@@ -104,13 +104,13 @@ struct ProgressView: View {
         )
     }
 
-    private func projectionColour(snapshot: ProgressSnapshot) -> Color {
+    private func projectionColour(snapshot: WeightHistoryData) -> Color {
         snapshot.projectionDirection == .worsening
             ? themeManager.palette.warning
             : themeManager.palette.success
     }
 
-    private func projectionSymbol(snapshot: ProgressSnapshot) -> String {
+    private func projectionSymbol(snapshot: WeightHistoryData) -> String {
         switch snapshot.projectionDirection {
         case .improving: "arrow.down.right"
         case .steady: "arrow.right"
@@ -119,7 +119,7 @@ struct ProgressView: View {
         }
     }
 
-    private func summary(snapshot: ProgressSnapshot) -> some View {
+    private func summary(snapshot: WeightHistoryData) -> some View {
         HStack(spacing: 12) {
             MetricCard(title: "CHANGE") {
                 Text(snapshot.changeKilograms.map { viewModel.unit.formatted(kilograms: $0, signed: true) } ?? "—")
@@ -132,7 +132,7 @@ struct ProgressView: View {
         }
     }
 
-    private func commentary(snapshot: ProgressSnapshot) -> some View {
+    private func commentary(snapshot: WeightHistoryData) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Your progress, in words", systemImage: "quote.bubble.fill")
                 .font(.headline)

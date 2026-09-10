@@ -5,7 +5,7 @@ import Foundation
 /// Owns every workflow concerned with creating, editing, listing, and deleting
 /// weight entries. Multiple interfaces can reuse these rules without copying them.
 @MainActor
-final class WeightEntryManager: WeightEntryFeature {
+final class WeightEntryManager {
     enum EntryDateError: LocalizedError, Equatable {
         case futureDate
 
@@ -45,7 +45,7 @@ final class WeightEntryManager: WeightEntryFeature {
 
     var latestWeightEntry: WeightEntry? { weightLog.latestEntry }
     var latestWeightChangeKilograms: Double? { progress.snapshot.changeKilograms }
-    var progressSnapshot: ProgressSnapshot { progress.snapshot }
+    var progressSnapshot: WeightHistoryData { progress.snapshot }
     var goalWeightKilograms: Double? { weightLog.goalKilograms }
     var dailyStreakSnapshot: DailyStreakSnapshot { dailyStreak.snapshot }
     var selectedWeightUnit: WeightUnit { settings.unit }
@@ -105,8 +105,9 @@ final class WeightEntryManager: WeightEntryFeature {
     }
 
     func refresh() async {
-        await weightLog.load()
-        await refreshDerivedFeatures()
+        await weightLog.load {
+            await self.refreshDerivedFeatures()
+        }
     }
 
     private func refreshDerivedFeatures() async {

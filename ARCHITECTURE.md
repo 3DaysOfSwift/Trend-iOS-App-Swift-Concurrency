@@ -49,7 +49,6 @@ Trend
 │   └── Views
 │       ├── Root
 │       │   ├── RootView.swift
-│       │   └── RootViewModel.swift
 │       ├── Today
 │       │   ├── TodayView.swift
 │       │   └── TodayViewModel.swift
@@ -57,7 +56,7 @@ Trend
 │       │   ├── EntryEditorView.swift
 │       │   └── EntryEditorViewModel.swift
 │       ├── Progress
-│       │   ├── ProgressView.swift
+│       │   ├── ProjectionView.swift
 │       │   └── ProgressViewModel.swift
 │       ├── History
 │       │   ├── HistoryView.swift
@@ -150,7 +149,7 @@ third, and reusable Swift language extensions fourth.
 - Keeps the feature initializer parameter available so tests can substitute an isolated capability.
 - Contains presentation validation and file-picker state when those concerns are specific to its View.
 - Does not persist data or call another ViewModel.
-- Is never cached by RootViewModel or another ViewModel.
+- Is never cached by another ViewModel.
 
 ### Colour Theme
 
@@ -164,14 +163,16 @@ in `1 - View` because they control presentation.
 
 - Is the composition root exposed as the single production instance `AppModel.shared`.
 - Constructs feature managers and supplies their narrow APIs to ViewModels.
-- Stores one `WeightEntryFeature` instance shared by Today, Entry Editor, and History, making it impossible to assemble those screens over inconsistent weight state.
+- Stores one `WeightEntryManager` instance shared by Today, Entry Editor, and History, making it impossible to assemble those screens over inconsistent weight state.
 - Keeps feature-specific workflows in their managers. Its sole application-wide workflow is `applicationDidFinishLaunching()`, which uses the first moments after launch as an opportunity to begin loading app-scoped features and install long-lived observers once.
 - Has a fully explicit initializer: every dependency is required and no production implementation is silently created there.
 - Confines production construction policy to `live()`; test construction policy lives in `TestAppModelFactory`.
 - Wires production feature managers to production repositories.
 - Contains no SwiftUI layout code.
 
-AppModel and its feature managers are app-scoped; ViewModels are view-scoped. Removing a View releases its ViewModel, while shared feature state remains available through the feature manager retained by AppModel. Production ViewModels select the narrow capabilities they need from `AppModel.shared` through defaulted initializer parameters; tests inject the same capabilities from an isolated application graph.
+AppModel and its feature managers are app-scoped; ViewModels are view-scoped. Removing a View releases its ViewModel, while shared feature state remains available through the feature manager retained by AppModel. Production ViewModels obtain concrete feature managers from `AppModel.shared` through defaulted initializer parameters; tests inject managers from an isolated application graph. Repository and client protocols remain at boundaries with replaceable implementations.
+
+The app delegate calls `applicationDidFinishLaunching()` synchronously. A single boolean prevents duplicate startup. Purchase observation is set up first, then independent tasks load feature data. RootView does not trigger startup, and the test host skips the production graph.
 
 `applicationDidFinishLaunching()` does not own or interpret the result of those loads. Each feature manager owns its idle, loading, loaded, empty, or failed state. A ViewModel exposes that state when its screen appears, and the screen offers retry when recovery is possible. Launch simply gives independent features a head start while the user is looking at the first screen.
 
@@ -220,3 +221,19 @@ The View decides how saving looks. The ViewModel owns editor state. `WeightEntry
 Every ViewModel has a dedicated suite named after it. Those tests describe presentation behavior at the ViewModel boundary: initial state, derived display data, user intent callbacks, successful workflows, validation, and recoverable failures. The shared `TestAppModelFactory` assembles the real AppModel and feature managers around an `InMemoryWeightRepository`, keeping tests realistic without reaching CloudKit.
 
 The lower layers retain focused tests for chart preparation, canonical unit persistence, feature coordination, and AppModel construction. Future integration passes can deepen CloudKit conflict resolution and security-scoped file importing; those operating-system boundaries are deliberately kept out of ViewModel unit tests.
+
+### Habits: observable manager and worker actor
+
+`HabitsManager` owns observable entries and prepared weekly and lifetime summaries.
+Its private `HabitsWorker` actor validates commands, saves and loads data, and
+calculates those results. ViewModels retain the manager; they never access the worker.
+The worker keeps no persistent copy of the manager's state. Named worker methods load, record, or remove entries directly; there is no action dispatcher. Recording methods return the saved entry after the manager publishes the completed result.
+
+Habit operations wait their turn through persistence and publication, so concurrent
+recordings cannot overwrite each other. A failed save leaves the previous results
+intact. Cancellation is checked before work starts; a successfully saved result is
+published even if cancellation arrives during the save. Calendar-day and foreground
+callbacks recalculate dated results without loading storage. This is the first
+feature using the pattern; the other features have not yet been migrated.
+
+Today renders its form and a fixed-size empty streak bar immediately. Saving and automatic keyboard focus wait for local weight data and derived values to be ready. Cloud synchronization follows local preparation without replacing the screen with a loading indicator.

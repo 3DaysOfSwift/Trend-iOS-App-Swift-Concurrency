@@ -5,214 +5,205 @@ import Observation
 
 @MainActor
 @Observable
-final class HabitsManager: HabitsFeature {
-    private let repository: any HabitRepository
+final class HabitsManager {
+    private let worker: HabitsWorker
     private let calendar: Calendar
     private let currentDate: @MainActor () -> Date
+    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var operationInProgress = false
+    @ObservationIgnored private var waitingOperations: [CheckedContinuation<Void, Never>] = []
 
     private(set) var loadState: HabitLoadState = .idle
     private(set) var habits: [Habit] = []
     private(set) var entries: [HabitEntry] = []
+    private(set) var weekSummaries: [String: HabitWeekSummary] = [:]
+    private(set) var lifetimeSummaries: [String: HabitLifetimeSummary] = [:]
+    private var todayEntries: [String: HabitEntry] = [:]
+    @ObservationIgnored private var summaryDate: Date?
+    private var entriesByDay: [String: [Date: HabitEntry]] = [:]
     private(set) var errorMessage: String?
 
-    init(
-        repository: any HabitRepository,
-        calendar: Calendar = .current,
-        currentDate: @escaping @MainActor () -> Date = { .now }
-    ) {
-        self.repository = repository
+    init(repository: any HabitRepository, calendar: Calendar = .current,
+         currentDate: @escaping @MainActor () -> Date) {
+        worker = HabitsWorker(repository: repository, calendar: calendar)
         self.calendar = calendar
         self.currentDate = currentDate
     }
 
     func refresh() async {
-        loadState = .loading
-        do {
-            let store = try await repository.load()
-            habits = HabitTemplate.allCases
-                .filter { store.selectedHabitIDs.contains($0.id) }
-                .map(\.habit)
-            entries = store.entries
-            errorMessage = nil
-            loadState = .ready
-        } catch {
-            errorMessage = error.localizedDescription
-            loadState = .failed(error.localizedDescription)
+        // Repeated calls wait for the same refresh, including publication of its result.
+        if let refreshTask {
+            await refreshTask.value
+            return
         }
+
+        let task = Task {
+            defer { refreshTask = nil }
+            // each operation is in a serial queue
+            await waitForPreviousOperation()
+            defer { finishOperation() }
+            let previousState = loadState
+            loadState = .loading
+            let today = currentDate()
+            do {
+                let result = try await worker.load(on: today)
+                publish(result, on: today)
+            } catch is CancellationError {
+                loadState = previousState
+            } catch {
+                errorMessage = error.localizedDescription
+                loadState = .failed(error.localizedDescription)
+            }
+        }
+        // The manager owns this request. Cancelling a caller does not cancel it for everyone.
+        refreshTask = task
+        await task.value
     }
 
-    func selectTemplates(_ templateIDs: Set<String>) async throws {
-        let selected = HabitTemplate.allCases
-            .filter { templateIDs.contains($0.id) }
-            .map(\.habit)
-        // Keep history when a habit leaves the active selection. Selecting it
-        // again should restore its earlier trend rather than silently erase it.
-        try await persist(selectedHabitIDs: selected.map(\.id), entries: entries)
+    @discardableResult
+    func selectTemplates(_ templateIDs: Set<String>) async throws -> [Habit] {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        let today = currentDate()
+        let result = try await worker.selectTemplates(templateIDs, store: store, today: today)
+        publish(result, on: today)
+        return result.habits
     }
 
-    private func record(_ value: Double, for habitID: String, on date: Date) async throws {
-        guard
-            habits.contains(where: { $0.id == habitID }),
-            let template = HabitTemplate(rawValue: habitID),
-            !template.recordingPolicy.accumulatesOccurrences,
-            template.recordingPolicy.accepts(value)
-        else {
-            throw HabitError.invalidValue
-        }
-        let existingEntry = entry(for: habitID, on: date)
-        var updatedEntries = entries.filter {
-            !($0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: date))
-        }
-        updatedEntries.append(HabitEntry(
-            id: UUID(),
-            habitID: habitID,
-            date: date,
-            value: value,
-            occurrenceCount: existingEntry?.occurrenceCount
-        ))
-        updatedEntries.sort { $0.date > $1.date }
-        try await persist(selectedHabitIDs: habits.map(\.id), entries: updatedEntries)
-    }
-
-    private func recordOccurrence(_ value: Double, for habitID: String, on date: Date) async throws {
-        guard
-            habits.contains(where: { $0.id == habitID }),
-            let template = HabitTemplate(rawValue: habitID),
-            template.recordingPolicy.accumulatesOccurrences,
-            template.recordingPolicy.accepts(value)
-        else {
-            throw HabitError.invalidValue
-        }
-
-        let existingEntry = entry(for: habitID, on: date)
-        var updatedEntries = entries.filter {
-            !($0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: date))
-        }
-        updatedEntries.append(HabitEntry(
-            id: UUID(),
-            habitID: habitID,
-            date: date,
-            value: (existingEntry?.value ?? 0) + value,
-            occurrenceCount: (existingEntry?.occurrenceCount ?? 0) + 1
-        ))
-        updatedEntries.sort { $0.date > $1.date }
-        try await persist(selectedHabitIDs: habits.map(\.id), entries: updatedEntries)
-    }
-
-    private func removeOne(for habitID: String, on date: Date) async throws {
-        guard HabitTemplate(rawValue: habitID) == .coffee || HabitTemplate(rawValue: habitID) == .water || HabitTemplate(rawValue: habitID) == .alcohol else {
-            throw HabitError.unsupportedOperation
-        }
-        guard let existingEntry = entry(for: habitID, on: date), existingEntry.value > 0 else { return }
-
-        if existingEntry.value > 1 {
-            try await record(existingEntry.value - 1, for: habitID, on: date)
-        } else {
-            let updatedEntries = entries.filter { $0.id != existingEntry.id }
-            try await persist(selectedHabitIDs: habits.map(\.id), entries: updatedEntries)
-        }
-    }
-
-    private func clearEntry(for habitID: String, on date: Date) async throws {
-        let updatedEntries = entries.filter {
-            !($0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: date))
-        }
-        guard updatedEntries.count != entries.count else { return }
-        try await persist(selectedHabitIDs: habits.map(\.id), entries: updatedEntries)
-    }
-
+    // Observation dependency: `entriesByDay`
     func entry(for habitID: String, on date: Date) -> HabitEntry? {
-        entries.first { $0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: date) }
+        entriesByDay[habitID]?[calendar.startOfDay(for: date)]
     }
 
+    // Observation dependency: `todayEntries`
     func todaysEntry(for habitID: String) -> HabitEntry? {
-        entry(for: habitID, on: currentDate())
+        todayEntries[habitID]
     }
 
-    func weekSnapshot(for habitID: String, on date: Date) -> HabitWeekSnapshot {
-        var mondayCalendar = calendar
-        mondayCalendar.firstWeekday = 2
-        let startOfToday = mondayCalendar.startOfDay(for: date)
-        let weekday = mondayCalendar.component(.weekday, from: startOfToday)
-        let daysSinceMonday = (weekday - mondayCalendar.firstWeekday + 7) % 7
-        let monday = mondayCalendar.date(byAdding: .day, value: -daysSinceMonday, to: startOfToday) ?? startOfToday
-
-        let days = (0..<7).compactMap { offset -> HabitWeekSnapshot.Day? in
-            guard let day = mondayCalendar.date(byAdding: .day, value: offset, to: monday) else { return nil }
-            let entry = entry(for: habitID, on: day)
-            return HabitWeekSnapshot.Day(
-                date: day,
-                value: entry?.value ?? 0,
-                hasCheckIn: entry != nil,
-                isToday: mondayCalendar.isDate(day, inSameDayAs: startOfToday)
-            )
-        }
-        return HabitWeekSnapshot(
-            currentStreak: currentStreak(for: habitID, on: startOfToday),
-            days: days
-        )
+    func weekSummary(for habitID: String, on date: Date) async -> HabitWeekSummary {
+        await worker.weekSummary(entriesByDay: entriesByDay[habitID] ?? [:], on: date)
     }
 
-    func currentWeekSnapshot(for habitID: String) -> HabitWeekSnapshot {
-        weekSnapshot(for: habitID, on: currentDate())
+    // Observation dependency: `weekSummaries`
+    func currentWeekSummary(for habitID: String) -> HabitWeekSummary {
+        weekSummaries[habitID] ?? HabitWeekSummary(currentStreak: 0, days: [])
     }
 
+    // Observation dependency: `lifetimeSummaries`
     func lifetimeSummary(for habitID: String) -> HabitLifetimeSummary {
-        let habitEntries = entries.filter { $0.habitID == habitID }
-        return HabitLifetimeSummary(
-            totalValue: habitEntries.reduce(0) { $0 + $1.value },
-            firstEntryDate: habitEntries.map(\.date).min()
-        )
+        lifetimeSummaries[habitID] ?? HabitLifetimeSummary(totalValue: 0, firstEntryDate: nil)
     }
 
-    func recordCoffee(on date: Date) async throws {
-        try await record((entry(for: HabitTemplate.coffee.id, on: date)?.value ?? 0) + 1, for: HabitTemplate.coffee.id, on: date)
+    @discardableResult
+    func recordCoffee(on date: Date) async throws -> HabitEntry {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        let today = currentDate()
+        let result = try await worker.recordCoffee(on: date, store: store, today: today)
+        publish(result.update, on: today)
+        return result.entry
     }
 
-    func removeCoffee(on date: Date) async throws {
-        try await removeOne(for: HabitTemplate.coffee.id, on: date)
+    @discardableResult
+    func recordGymRepetitions(_ repetitions: Int, on date: Date) async throws -> HabitEntry {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        let today = currentDate()
+        let result = try await worker.recordGymRepetitions(repetitions, on: date, store: store, today: today)
+        publish(result.update, on: today)
+        return result.entry
     }
 
-    func recordGymRepetitions(_ repetitions: Int, on date: Date) async throws {
-        let total = (entry(for: HabitTemplate.gymRepetitions.id, on: date)?.value ?? 0) + Double(repetitions)
-        try await record(total, for: HabitTemplate.gymRepetitions.id, on: date)
+    @discardableResult
+    func recordRun(kilometres: Double, on date: Date) async throws -> HabitEntry {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        let today = currentDate()
+        let result = try await worker.recordRun(kilometres: kilometres, on: date, store: store, today: today)
+        publish(result.update, on: today)
+        return result.entry
+    }
+
+    @discardableResult
+    func recordSleep(hours: Double, on date: Date) async throws -> HabitEntry {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        let today = currentDate()
+        let result = try await worker.recordSleep(hours: hours, on: date, store: store, today: today)
+        publish(result.update, on: today)
+        return result.entry
+    }
+
+    @discardableResult
+    func recordWakeTime(minutesAfterMidnight: Int, on date: Date) async throws -> HabitEntry {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        let today = currentDate()
+        let result = try await worker.recordWakeTime(minutesAfterMidnight: minutesAfterMidnight, on: date, store: store, today: today)
+        publish(result.update, on: today)
+        return result.entry
+    }
+
+    @discardableResult
+    func recordGlassOfWater(on date: Date) async throws -> HabitEntry {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        let today = currentDate()
+        let result = try await worker.recordGlassOfWater(on: date, store: store, today: today)
+        publish(result.update, on: today)
+        return result.entry
+    }
+
+    @discardableResult
+    func recordAlcoholicDrink(on date: Date) async throws -> HabitEntry {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        let today = currentDate()
+        let result = try await worker.recordAlcoholicDrink(on: date, store: store, today: today)
+        publish(result.update, on: today)
+        return result.entry
+    }
+
+    @discardableResult
+    func removeCoffee(on date: Date) async throws -> HabitEntry? {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        let today = currentDate()
+        let result = try await worker.removeCoffee(on: date, store: store, today: today)
+        publish(result.update, on: today)
+        return result.entry
     }
 
     func clearGymRepetitions(on date: Date) async throws {
-        try await clearEntry(for: HabitTemplate.gymRepetitions.id, on: date)
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        let today = currentDate()
+        let result = try await worker.clearGymRepetitions(on: date, store: store, today: today)
+        publish(result, on: today)
     }
 
-    func recordRun(kilometres: Double, on date: Date) async throws {
-        try await recordOccurrence(kilometres, for: HabitTemplate.runningDistance.id, on: date)
-    }
-
-    func recordSleep(hours: Double, on date: Date) async throws {
-        try await record(hours, for: HabitTemplate.sleep.id, on: date)
-    }
-
-    func recordWakeTime(minutesAfterMidnight: Int, on date: Date) async throws {
-        try await record(Double(minutesAfterMidnight), for: HabitTemplate.wakeTime.id, on: date)
-    }
-
-    func recordGlassOfWater(on date: Date) async throws {
-        let total = (entry(for: HabitTemplate.water.id, on: date)?.value ?? 0) + 1
-        try await record(total, for: HabitTemplate.water.id, on: date)
-    }
-
-    func recordAlcoholicDrink(on date: Date) async throws {
-        let total = (entry(for: HabitTemplate.alcohol.id, on: date)?.value ?? 0) + 1
-        try await record(total, for: HabitTemplate.alcohol.id, on: date)
-    }
-
-    func recordCoffeeToday() async throws {
+    @discardableResult
+    func recordCoffeeToday() async throws -> HabitEntry {
         try await recordCoffee(on: currentDate())
     }
 
-    func removeCoffeeToday() async throws {
+    @discardableResult
+    func removeCoffeeToday() async throws -> HabitEntry? {
         try await removeCoffee(on: currentDate())
     }
 
-    func recordGymRepetitionsToday(_ repetitions: Int) async throws {
+    @discardableResult
+    func recordGymRepetitionsToday(_ repetitions: Int) async throws -> HabitEntry {
         try await recordGymRepetitions(repetitions, on: currentDate())
     }
 
@@ -220,55 +211,78 @@ final class HabitsManager: HabitsFeature {
         try await clearGymRepetitions(on: currentDate())
     }
 
-    func recordRunToday(kilometres: Double) async throws {
+    @discardableResult
+    func recordRunToday(kilometres: Double) async throws -> HabitEntry {
         try await recordRun(kilometres: kilometres, on: currentDate())
     }
 
-    func recordSleepToday(hours: Double) async throws {
+    @discardableResult
+    func recordSleepToday(hours: Double) async throws -> HabitEntry {
         try await recordSleep(hours: hours, on: currentDate())
     }
 
-    func recordWakeTimeToday(minutesAfterMidnight: Int) async throws {
+    @discardableResult
+    func recordWakeTimeToday(minutesAfterMidnight: Int) async throws -> HabitEntry {
         try await recordWakeTime(minutesAfterMidnight: minutesAfterMidnight, on: currentDate())
     }
 
-    func recordGlassOfWaterToday() async throws {
+    @discardableResult
+    func recordGlassOfWaterToday() async throws -> HabitEntry {
         try await recordGlassOfWater(on: currentDate())
     }
 
-    func recordAlcoholicDrinkToday() async throws {
+    @discardableResult
+    func recordAlcoholicDrinkToday() async throws -> HabitEntry {
         try await recordAlcoholicDrink(on: currentDate())
     }
 
-    private func currentStreak(for habitID: String, on date: Date) -> Int {
-        var day = calendar.startOfDay(for: date)
-
-        // Today's streak remains alive until the day ends, just as it does for
-        // the primary weight check-in streak.
-        if entry(for: habitID, on: day) == nil {
-            day = calendar.date(byAdding: .day, value: -1, to: day) ?? day
-        }
-
-        var streak = 0
-        while entry(for: habitID, on: day) != nil {
-            streak += 1
-            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: day) else { break }
-            day = previousDay
-        }
-        return streak
+    // Called on foreground entry and calendar-day changes; no disk reload is needed.
+    func updateCurrentDay() async {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        guard !Task.isCancelled, summaryDate != nil else { return }
+        let date = currentDate()
+        guard summaryDate != calendar.startOfDay(for: date) else { return }
+        let result = await worker.prepare(
+            HabitStore(selectedHabitIDs: habits.map(\.id), entries: entries), on: date)
+        todayEntries = result.todayEntries
+        weekSummaries = result.weekSummaries
+        summaryDate = calendar.startOfDay(for: date)
     }
 
-    private func persist(selectedHabitIDs: [String], entries: [HabitEntry]) async throws {
-        let store = HabitStore(selectedHabitIDs: selectedHabitIDs, entries: entries)
-        try await repository.save(store)
-        habits = HabitTemplate.allCases
-            .filter { selectedHabitIDs.contains($0.id) }
-            .map(\.habit)
-        self.entries = entries
-        loadState = .ready
+    private var store: HabitStore {
+        HabitStore(selectedHabitIDs: habits.map(\.id), entries: entries)
+    }
+
+    private func publish(_ result: HabitsWorker.Update, on date: Date) {
+        // Publish the completed operation together, with no suspension between assignments.
+        habits = result.habits
+        entries = result.entries
+        entriesByDay = result.entriesByDay
+        todayEntries = result.todayEntries
+        summaryDate = calendar.startOfDay(for: date)
+        weekSummaries = result.weekSummaries
+        lifetimeSummaries = result.lifetimeSummaries
         errorMessage = nil
+        loadState = .ready
     }
 
+    private func waitForPreviousOperation() async {
+        if operationInProgress {
+            await withCheckedContinuation { waitingOperations.append($0) }
+        } else {
+            operationInProgress = true
+        }
+    }
+
+    // Hand the turn to the next caller, keeping the flag true until the queue is empty.
+    private func finishOperation() {
+        if waitingOperations.isEmpty {
+            operationInProgress = false
+        } else {
+            waitingOperations.removeFirst().resume()
+        }
+    }
 }
 
 enum HabitError: LocalizedError {

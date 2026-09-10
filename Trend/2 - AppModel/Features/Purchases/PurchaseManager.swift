@@ -5,7 +5,7 @@ import Foundation
 
 @MainActor
 @Observable
-final class PurchaseManager: PurchaseFeature {
+final class PurchaseManager {
     static let habitsProductID = "com.mattharding.Trend.habits"
 
     private let client: any PurchaseClient
@@ -25,8 +25,9 @@ final class PurchaseManager: PurchaseFeature {
 
     func observeTransactionUpdates() {
         guard transactionUpdatesTask == nil else { return }
-        transactionUpdatesTask = Task { @MainActor [weak self, client] in
-            for await _ in client.transactionUpdates() {
+        let updates = client.transactionUpdates()
+        transactionUpdatesTask = Task { @MainActor [weak self] in
+            for await _ in updates {
                 guard let self else { return }
                 let wasUnlocked = self.hasUnlockedHabits
                 await self.refreshEntitlements()

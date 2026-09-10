@@ -28,15 +28,18 @@ struct DailyStreakSnapshot: Sendable, Equatable {
 final class DailyStreakManager {
     private let trend: DailyTrendManager
     private let calendar: Calendar
+    private let currentDate: @MainActor () -> Date
 
     private(set) var snapshot: DailyStreakSnapshot = .empty
 
-    init(trend: DailyTrendManager, calendar: Calendar = .current) {
+    init(trend: DailyTrendManager, calendar: Calendar = .current, currentDate: @escaping @MainActor () -> Date) {
         self.trend = trend
         self.calendar = calendar
+        self.currentDate = currentDate
     }
 
-    func refresh(entries: [WeightEntry], now: Date = .now) async {
+    func refresh(entries: [WeightEntry], now: Date? = nil) async {
+        let now = now ?? currentDate()
         let today = calendar.startOfDay(for: now)
         let entriesByDay = Dictionary(grouping: entries) { entry in
             calendar.startOfDay(for: entry.date)

@@ -7,8 +7,8 @@ actor ProgressInsights {
         entries: [WeightEntry],
         range: ProgressRange,
         goalKilograms: Double? = nil,
-        now: Date = .now
-    ) -> ProgressSnapshot {
+        now: Date
+    ) -> WeightHistoryData {
         let ascending = entries.sorted { $0.date < $1.date }
         let filtered: [WeightEntry]
         if let days = range.days, let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: now) {
@@ -22,7 +22,7 @@ actor ProgressInsights {
             let lowerBound = max(0, index - 2)
             let window = filtered[lowerBound...index]
             let average = window.map(\.kilograms).reduce(0, +) / Double(window.count)
-            return ProgressSnapshot.Point(
+            return WeightHistoryData.Point(
                 id: filtered[index].id,
                 date: filtered[index].date,
                 kilograms: filtered[index].kilograms,
@@ -40,7 +40,7 @@ actor ProgressInsights {
             + projection.points.map(\.kilograms)
             + (goalKilograms.map { [$0] } ?? [])
         let padding = max((chartWeights.max()! - chartWeights.min()!) * 0.15, 1)
-        return ProgressSnapshot(
+        return WeightHistoryData(
             points: points,
             changeKilograms: change,
             changeDirection: change.map(direction(for:)),
@@ -106,7 +106,7 @@ actor ProgressInsights {
         entries: [WeightEntry],
         goalKilograms: Double?,
         now: Date
-    ) -> (points: [ProgressSnapshot.ProjectionPoint], weeklyChange: Double?, goalDate: Date?) {
+    ) -> (points: [WeightHistoryData.ProjectionPoint], weeklyChange: Double?, goalDate: Date?) {
         let calendar = Calendar.current
         let dailyEntries = Dictionary(grouping: entries) { calendar.startOfDay(for: $0.date) }
             .values
@@ -133,7 +133,7 @@ actor ProgressInsights {
         // daily observations accumulate.
         let slope = min(max(rawSlope, -0.15), 0.15)
         let horizonDays = 30
-        let points = stride(from: 0, through: horizonDays, by: 5).compactMap { day -> ProgressSnapshot.ProjectionPoint? in
+        let points = stride(from: 0, through: horizonDays, by: 5).compactMap { day -> WeightHistoryData.ProjectionPoint? in
             guard let date = calendar.date(byAdding: .day, value: day, to: latest.date) else { return nil }
             return .init(date: date, kilograms: latest.kilograms + slope * Double(day))
         }

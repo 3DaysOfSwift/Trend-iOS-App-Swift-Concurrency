@@ -22,18 +22,24 @@ final class WeightLogManager {
 
     init(repository: any WeightRepository) { self.repository = repository }
 
-    func load() async {
-        state = .loading
+    // Prepare dependent values from local data before declaring the feature ready.
+    func load(prepareLoadedData: @MainActor () async -> Void = {}) async {
+        if state != .ready { state = .loading }
         do {
             if let repository = repository as? any LocallyCachedWeightRepository {
                 let localStore = try await repository.loadCached()
                 publish(localStore)
+                await prepareLoadedData()
                 state = .ready
 
                 let synchronizedStore = await repository.synchronize(localStore)
-                publish(synchronizedStore)
+                if synchronizedStore.entries != localStore.entries || synchronizedStore.goalKilograms != localStore.goalKilograms {
+                    publish(synchronizedStore)
+                    await prepareLoadedData()
+                }
             } else {
                 publish(try await repository.load())
+                await prepareLoadedData()
             }
             state = .ready
         } catch {

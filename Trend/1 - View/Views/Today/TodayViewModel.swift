@@ -6,14 +6,14 @@ import Observation
 @MainActor
 @Observable
 final class TodayViewModel {
-    private let today: any TodayFeature
+    private let today: WeightEntryManager
 
     var draft: WeightEntryDraft
     var errorMessage: String?
     private(set) var isSaving = false
     private(set) var submittedResult: DailyCheckInResult?
 
-    init(today: any TodayFeature = AppModel.shared.weightEntries) {
+    init(today: WeightEntryManager = AppModel.shared.weightEntries) {
         self.today = today
         draft = today.makeWeightEntryDraft(editing: nil)
     }
@@ -21,19 +21,14 @@ final class TodayViewModel {
     var latestEntry: WeightEntry? { today.latestWeightEntry }
     var loadState: WeightLogState { today.weightLogState }
     var changeKilograms: Double? { today.latestWeightChangeKilograms }
-    var progressSnapshot: ProgressSnapshot { today.progressSnapshot }
+    var progressSnapshot: WeightHistoryData { today.progressSnapshot }
     var goalKilograms: Double? { today.goalWeightKilograms }
     var streakSnapshot: DailyStreakSnapshot { today.dailyStreakSnapshot }
     var unit: WeightUnit { today.selectedWeightUnit }
     var latestPermittedEntryDate: Date { today.latestPermittedEntryDate }
-    var canSave: Bool { !draft.value.isEmpty && !isSaving }
+    var canSave: Bool { loadState == .ready && !draft.value.isEmpty && !isSaving }
 
-    func loadIfRequired() async {
-        guard loadState == .idle else { return }
-        await today.refresh()
-    }
-
-    func retryLoad() async {
+    func refresh() async {
         await today.refresh()
     }
 

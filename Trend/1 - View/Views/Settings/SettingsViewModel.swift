@@ -6,7 +6,7 @@ import Observation
 @MainActor
 @Observable
 final class SettingsViewModel {
-    private let settings: any SettingsFeature
+    private let settings: SettingsManager
 
     var exportDocument: JSONDocument?
     var isExporting = false
@@ -15,7 +15,7 @@ final class SettingsViewModel {
     var message: String?
     var goalText = ""
 
-    init(settings: any SettingsFeature = AppModel.shared.settingsFeature) {
+    init(settings: SettingsManager = AppModel.shared.settingsFeature) {
         self.settings = settings
         updateGoalText()
     }

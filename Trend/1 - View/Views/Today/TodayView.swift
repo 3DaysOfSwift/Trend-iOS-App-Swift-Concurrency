@@ -11,6 +11,7 @@ struct TodayView: View {
     @State private var entryCardOffset: CGFloat = 0
     @State private var entryCardOpacity = 1.0
     @State private var themeChangeFeedback = 0
+    @ScaledMetric(relativeTo: .headline) private var streakBarHeight: CGFloat = 46
 
     var body: some View {
         NavigationStack {
@@ -18,9 +19,7 @@ struct TodayView: View {
                 themeManager.palette.background
                     .ignoresSafeArea()
 
-                if viewModel.loadState == .idle || viewModel.loadState == .loading {
-                    SwiftUI.ProgressView("Loading your weight history…")
-                } else if case .failed(let message) = viewModel.loadState {
+                if case .failed(let message) = viewModel.loadState {
                     loadFailure(message)
                 } else if showsResult, let result = viewModel.submittedResult {
                     resultContent(result)
@@ -37,11 +36,9 @@ struct TodayView: View {
                 streakBar
             }
         }
-        .task {
-            async let load: Void = viewModel.loadIfRequired()
-            async let focus: Void = focusWeightField()
-            await load
-            await focus
+        .task(id: viewModel.loadState) {
+            guard viewModel.loadState == .ready else { return }
+            await focusWeightField()
         }
         .sensoryFeedback(.selection, trigger: themeChangeFeedback)
     }
@@ -53,7 +50,7 @@ struct TodayView: View {
             Text(message)
         } actions: {
             Button("Try again") {
-                Task { await viewModel.retryLoad() }
+                Task { await viewModel.refresh() }
             }
             .buttonStyle(.borderedProminent)
         }
@@ -63,32 +60,36 @@ struct TodayView: View {
         let snapshot = viewModel.streakSnapshot
 
         return HStack(spacing: 8) {
-            HStack(spacing: 4) {
-                Image(systemName: "flame.fill")
-                    .foregroundStyle(.orange.gradient)
-                Text("\(snapshot.currentStreak)")
-                    .font(.headline.bold().monospacedDigit())
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(snapshot.currentStreak) day streak")
-
-            Divider()
-                .frame(height: 34)
-
-            ForEach(snapshot.days) { day in
-                VStack(spacing: 4) {
-                    Text(day.date, format: .dateTime.weekday(.narrow))
-                        .font(.system(size: 10, weight: day.isToday ? .bold : .medium))
-                        .foregroundStyle(day.isToday ? Color.primary : Color.secondary)
-
-                    streakSymbol(for: day)
-                        .frame(width: 28, height: 28)
+            if !snapshot.days.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "flame.fill")
+                        .foregroundStyle(.orange.gradient)
+                    Text("\(snapshot.currentStreak)")
+                        .font(.headline.bold().monospacedDigit())
                 }
-                .frame(maxWidth: .infinity)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(streakAccessibilityLabel(for: day))
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(snapshot.currentStreak) day streak")
+
+                Divider()
+                    .frame(height: 34)
+
+                ForEach(snapshot.days) { day in
+                    VStack(spacing: 4) {
+                        Text(day.date, format: .dateTime.weekday(.narrow))
+                            .font(.system(size: 10, weight: day.isToday ? .bold : .medium))
+                            .foregroundStyle(day.isToday ? Color.primary : Color.secondary)
+
+                        streakSymbol(for: day)
+                            .frame(width: 28, height: 28)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(streakAccessibilityLabel(for: day))
+                }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: streakBarHeight)
         .padding(.horizontal, 14)
         .padding(.vertical, 9)
         .background(.ultraThinMaterial)

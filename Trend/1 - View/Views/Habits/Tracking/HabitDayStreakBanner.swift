@@ -3,7 +3,7 @@
 import SwiftUI
 
 struct HabitDayStreakBanner: View {
-    let data: HabitWeekSnapshot
+    let data: HabitWeekSummary
     let symbol: String
     var showsDailyCount = false
     @Environment(ThemeManager.self) private var themeManager
@@ -58,7 +58,7 @@ struct HabitDayStreakBanner: View {
         .overlay(alignment: .bottom) { Divider() }
     }
 
-    private func dayAccessibilityLabel(_ day: HabitWeekSnapshot.Day) -> String {
+    private func dayAccessibilityLabel(_ day: HabitWeekSummary.Day) -> String {
         let name = day.date.formatted(.dateTime.weekday(.wide))
         if showsDailyCount, day.hasCheckIn {
             return "\(name), \(Int(day.value)) coffees"

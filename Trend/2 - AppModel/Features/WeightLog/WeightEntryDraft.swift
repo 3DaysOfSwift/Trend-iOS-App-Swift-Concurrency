@@ -7,7 +7,7 @@ import Foundation
 /// Views may build and edit this plain value, but AppModel owns its meaning and
 /// conversion into the canonical kilograms stored by the repository.
 struct WeightEntryDraft: Sendable {
-    var date = Date()
+    var date: Date
     var value = ""
     var note = ""
 

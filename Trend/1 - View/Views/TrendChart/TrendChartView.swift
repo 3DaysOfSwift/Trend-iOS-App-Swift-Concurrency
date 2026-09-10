@@ -6,7 +6,7 @@ import SwiftUI
 /// Everything the reusable branded chart needs, without giving it access to a
 /// ViewModel or the AppModel.
 struct TrendChartData {
-    let snapshot: ProgressSnapshot
+    let snapshot: WeightHistoryData
     let goalKilograms: Double?
     let unit: WeightUnit
 }
@@ -117,7 +117,7 @@ struct TrendChartView: View {
 
     private var domain: ClosedRange<Double> { data.snapshot.domain ?? 0...100 }
 
-    private var singlePoint: ProgressSnapshot.Point? {
+    private var singlePoint: WeightHistoryData.Point? {
         data.snapshot.points.count == 1 ? data.snapshot.points.first : nil
     }
 
