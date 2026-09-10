@@ -237,3 +237,33 @@ callbacks recalculate dated results without loading storage. This is the first
 feature using the pattern; the other features have not yet been migrated.
 
 Today renders its form and a fixed-size empty streak bar immediately. Saving and automatic keyboard focus wait for local weight data and derived values to be ready. Cloud synchronization follows local preparation without replacing the screen with a loading indicator.
+
+
+### Habit storage and iCloud
+
+Local loading and saving never wait for iCloud. `HabitsManager.load()` reads saved
+habits once at launch and allows retry after a failed load. `synchronize()` checks
+iCloud when the app becomes active, loading local data first if needed. Screens
+observe the manager and do not reload it on appearance. Calendar changes call
+`updateCurrentDay()` without a file reload or network request. Recording an entry can
+complete while synchronization is waiting for the network. Local changes still take turns
+because they modify the same file. This is a habit-storage rule, not an app-wide queue.
+
+`FileHabitRepository` writes the current entries and the last synchronized store
+in one atomic JSON write. The stored comparison version identifies pending edits
+and deletions; it is storage information, not another observable feature manager.
+There is no separate pending-upload marker to fail after an otherwise successful save.
+The app is unreleased. Use the current JSON format without compatibility code for
+earlier development versions.
+
+`CloudKitHabitClient` merges changes to different habits and days. A pending local
+edit or deletion wins when both devices changed the same habit/day; counts are not
+added together. It uses CloudKit's record-change check and retries a conflicting
+save at most three times. Other failures leave local data available and set the
+manager's `synchronizationError`; a later synchronization request or edit retries iCloud.
+
+An upload can finish after another local edit. The file repository preserves that
+new edit when accepting the uploaded result. Likewise, saving a manager's older
+copy applies only its changes to the latest file, preserving downloaded entries.
+Tests exercise these overlaps with a paused cloud client and real temporary files.
+Live CloudKit behavior still needs verification using two signed-in devices.

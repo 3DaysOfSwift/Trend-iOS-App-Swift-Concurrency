@@ -27,11 +27,17 @@ actor HabitsWorker {
         return prepare(store, on: today)
     }
 
+    func synchronize() async throws {
+        if let cloud = repository as? any HabitCloudSynchronizing {
+            try await cloud.synchronize()
+        }
+    }
+
     func selectTemplates(_ ids: Set<String>, store: HabitStore, today: Date) async throws -> Update {
         var updated = store
         updated.selectedHabitIDs = HabitTemplate.allCases.filter { ids.contains($0.id) }.map(\.id)
-        try await repository.save(updated)
-        return prepare(updated, on: today)
+        let saved = try await repository.save(updated, replacing: store)
+        return prepare(saved, on: today)
     }
 
     func recordCoffee(on date: Date, store: HabitStore, today: Date) async throws -> (entry: HabitEntry, update: Update) {
@@ -88,8 +94,8 @@ actor HabitsWorker {
         }
         var updated = store
         updated.entries.removeAll { $0.id == existing.id }
-        try await repository.save(updated)
-        return (nil, prepare(updated, on: today))
+        let saved = try await repository.save(updated, replacing: store)
+        return (nil, prepare(saved, on: today))
     }
 
     func clearGymRepetitions(on date: Date, store: HabitStore, today: Date) async throws -> Update {
@@ -97,8 +103,8 @@ actor HabitsWorker {
         updated.entries.removeAll {
             $0.habitID == HabitTemplate.gymRepetitions.id && calendar.isDate($0.date, inSameDayAs: date)
         }
-        try await repository.save(updated)
-        return prepare(updated, on: today)
+        let saved = try await repository.save(updated, replacing: store)
+        return prepare(saved, on: today)
     }
 
     private func saveEntry(_ value: Double, for id: String, on date: Date,
@@ -119,8 +125,8 @@ actor HabitsWorker {
         updated.entries.removeAll { $0.habitID == id && calendar.isDate($0.date, inSameDayAs: date) }
         updated.entries.append(recordedEntry)
         updated.entries.sort { $0.date > $1.date }
-        try await repository.save(updated)
-        return (recordedEntry, prepare(updated, on: today))
+        let saved = try await repository.save(updated, replacing: store)
+        return (recordedEntry, prepare(saved, on: today))
     }
 
     private func entry(in entries: [HabitEntry], for id: String, on date: Date) -> HabitEntry? {

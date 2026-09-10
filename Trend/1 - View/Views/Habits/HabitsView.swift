@@ -56,7 +56,6 @@ struct HabitsView: View {
             guard completionID != nil, !viewModel.isPurchasing else { return }
             showsPurchaseJourney = true
         }
-        .task { await viewModel.loadHabitsIfRequired() }
     }
 
     private var paywall: some View {
@@ -168,7 +167,7 @@ struct HabitsView: View {
             Text(message)
         } actions: {
             Button("Try again") {
-                Task { await viewModel.refreshHabits() }
+                Task { await viewModel.loadHabits() }
             }
             .buttonStyle(.borderedProminent)
         }

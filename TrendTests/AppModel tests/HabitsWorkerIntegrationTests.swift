@@ -8,15 +8,15 @@ import os
 
 @MainActor
 struct HabitsWorkerIntegrationTests {
-    @Test func overlappingRefreshesShareOneLoadEvenIfACallerCancels() async {
-        await checkSharedRefresh(failing: false)
+    @Test func overlappingLoadsShareOneLoadEvenIfACallerCancels() async {
+        await checkSharedLoad(failing: false)
     }
 
-    @Test func overlappingRefreshesShareFailureAndAllowAnotherRefresh() async {
-        await checkSharedRefresh(failing: true)
+    @Test func overlappingLoadsShareFailureAndAllowAnotherLoad() async {
+        await checkSharedLoad(failing: true)
     }
 
-    private func checkSharedRefresh(failing: Bool) async {
+    private func checkSharedLoad(failing: Bool) async {
         let repository = SuspendedHabitRepository()
         let manager = HabitsManager(repository: repository, currentDate: TestAppModelFactory.currentDate)
         await repository.pauseNextLoad()
@@ -25,7 +25,7 @@ struct HabitsWorkerIntegrationTests {
         let callers = (0..<4).map { _ in
             Task {
                 started += 1
-                await manager.refresh()
+                await manager.load()
                 if failing {
                     #expect(manager.errorMessage != nil)
                 } else {
@@ -44,8 +44,8 @@ struct HabitsWorkerIntegrationTests {
         #expect(finished == 4)
         #expect(await repository.loadCount == 1)
 
-        await manager.refresh()
-        #expect(await repository.loadCount == 2)
+        await manager.load()
+        #expect(await repository.loadCount == (failing ? 2 : 1))
         #expect(manager.loadState == .ready)
         #expect(manager.errorMessage == nil)
     }
@@ -73,14 +73,14 @@ struct HabitsWorkerIntegrationTests {
         #expect(saved.entries.first?.value == 2)
     }
 
-    @Test func refreshCannotReplaceAnInFlightRecordingWithOldData() async throws {
+    @Test func loadingAfterARecordingKeepsTheSavedData() async throws {
         let repository = SuspendedHabitRepository()
         let manager = HabitsManager(repository: repository, currentDate: TestAppModelFactory.currentDate)
         try await manager.selectTemplates([HabitTemplate.water.id])
         await repository.pauseNextSave()
         let recording = Task { try await manager.recordGlassOfWaterToday() }
         await repository.waitForPausedSave()
-        let refresh = Task { await manager.refresh() }
+        let refresh = Task { await manager.load() }
         await repository.releaseSave()
         try await recording.value
         await refresh.value
@@ -139,13 +139,13 @@ struct HabitsWorkerIntegrationTests {
         #expect(await repository.loadCount == 0)
     }
 
-    @Test func refreshPublishesPreparedSummaries() async throws {
+    @Test func loadingPublishesPreparedSummaries() async throws {
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         let store = HabitStore(selectedHabitIDs: [HabitTemplate.coffee.id], entries: [
             HabitEntry(id: UUID(), habitID: HabitTemplate.coffee.id, date: date, value: 3)
         ])
         let manager = HabitsManager(repository: InMemoryHabitRepository(store: store), currentDate: { date })
-        await manager.refresh()
+        await manager.load()
         #expect(manager.loadState == .ready)
         #expect(manager.todaysEntry(for: HabitTemplate.coffee.id)?.value == 3)
         #expect(manager.currentWeekSummary(for: HabitTemplate.coffee.id).totalValue == 3)

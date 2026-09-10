@@ -50,8 +50,10 @@ final class AppModel {
         let dailyTips = DailyTipManager(currentDate: currentDate)
         let dailyStreak = DailyStreakManager(trend: dailyTrend, currentDate: currentDate)
         let backupFiles = BackupFileManager()
+        let habitRepository = CloudKitHabitRepository(
+            cache: FileHabitRepository(), cloud: CloudKitHabitClient())
         let habits = HabitsManager(
-            repository: CloudKitHabitRepository(),
+            repository: habitRepository,
             currentDate: currentDate
         )
         let purchases = PurchaseManager(client: StoreKitPurchaseClient())
@@ -98,14 +100,17 @@ final class AppModel {
         Task { await purchaseFeature.refreshStoreState() }
         Task { await settingsFeature.refreshCloudStatus() }
         Task { await weightEntries.refresh() }
-        Task { await habitsFeature.refresh() }
+        Task { await habitsFeature.load() }
     }
     
     func applicationDidBecomeActive() {
-        Task { await habitsFeature.refresh() }
+        Task {
+            await habitsFeature.updateCurrentDay()
+            await habitsFeature.synchronize()
+        }
     }
 
     func applicationSignificantTimeChange() {
-        Task { await habitsFeature.refresh() }
+        Task { await habitsFeature.updateCurrentDay() }
     }
 }

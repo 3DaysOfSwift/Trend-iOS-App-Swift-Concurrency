@@ -7,9 +7,12 @@ import Observation
 @Observable
 final class HabitsManager {
     private let worker: HabitsWorker
+    private let usesCloud: Bool
     private let calendar: Calendar
     private let currentDate: @MainActor () -> Date
-    @ObservationIgnored private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var synchronizationTask: Task<Void, Never>?
+    @ObservationIgnored private var synchronizationRequested = false
+    @ObservationIgnored private var loadingTask: Task<Void, Never>?
     @ObservationIgnored private var operationInProgress = false
     @ObservationIgnored private var waitingOperations: [CheckedContinuation<Void, Never>] = []
 
@@ -22,42 +25,85 @@ final class HabitsManager {
     @ObservationIgnored private var summaryDate: Date?
     private var entriesByDay: [String: [Date: HabitEntry]] = [:]
     private(set) var errorMessage: String?
+    private(set) var synchronizationError: String?
 
     init(repository: any HabitRepository, calendar: Calendar = .current,
          currentDate: @escaping @MainActor () -> Date) {
+        usesCloud = repository is any HabitCloudSynchronizing
         worker = HabitsWorker(repository: repository, calendar: calendar)
         self.calendar = calendar
         self.currentDate = currentDate
     }
 
-    func refresh() async {
-        // Repeated calls wait for the same refresh, including publication of its result.
-        if let refreshTask {
-            await refreshTask.value
+    func load() async {
+        // Read saved habits once. Repeated callers share the load; a failed load can be retried.
+        if let loadingTask {
+            await loadingTask.value
             return
         }
 
+        guard loadState != .ready else { return }
         let task = Task {
-            defer { refreshTask = nil }
-            // each operation is in a serial queue
-            await waitForPreviousOperation()
-            defer { finishOperation() }
-            let previousState = loadState
-            loadState = .loading
-            let today = currentDate()
-            do {
-                let result = try await worker.load(on: today)
-                publish(result, on: today)
-            } catch is CancellationError {
-                loadState = previousState
-            } catch {
-                errorMessage = error.localizedDescription
-                loadState = .failed(error.localizedDescription)
-            }
+            defer { loadingTask = nil }
+            await loadLocalData()
         }
         // The manager owns this request. Cancelling a caller does not cancel it for everyone.
-        refreshTask = task
+        loadingTask = task
         await task.value
+    }
+
+    func synchronize() async {
+        await load()
+        guard loadState == .ready else { return }
+        if let synchronizationTask {
+            await synchronizationTask.value
+            return
+        }
+        if let synchronization = requestCloudSynchronization() {
+            await synchronization.value
+        }
+    }
+
+    private func loadLocalData() async {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        let previousState = loadState
+        if loadState != .ready { loadState = .loading }
+        do {
+            let today = currentDate()
+            let result = try await worker.load(on: today)
+            publish(result, on: today)
+        } catch is CancellationError {
+            loadState = previousState
+        } catch {
+            errorMessage = error.localizedDescription
+            loadState = .failed(error.localizedDescription)
+        }
+    }
+
+    @discardableResult
+    private func requestCloudSynchronization() -> Task<Void, Never>? {
+        guard usesCloud else { return nil }
+        synchronizationRequested = true
+        if let synchronizationTask { return synchronizationTask }
+        let task = Task {
+            defer { synchronizationTask = nil }
+            repeat {
+                synchronizationRequested = false
+                do {
+                    // Do not hold the local queue while waiting for iCloud.
+                    try await worker.synchronize()
+                    synchronizationError = nil
+                    await loadLocalData()
+                } catch {
+                    // Local saves still succeeded. The next synchronization or edit retries iCloud.
+                    synchronizationError = error.localizedDescription
+                    return
+                }
+            } while synchronizationRequested
+        }
+        synchronizationTask = task
+        return task
     }
 
     @discardableResult
@@ -68,6 +114,7 @@ final class HabitsManager {
         let today = currentDate()
         let result = try await worker.selectTemplates(templateIDs, store: store, today: today)
         publish(result, on: today)
+        requestCloudSynchronization()
         return result.habits
     }
 
@@ -103,6 +150,7 @@ final class HabitsManager {
         let today = currentDate()
         let result = try await worker.recordCoffee(on: date, store: store, today: today)
         publish(result.update, on: today)
+        requestCloudSynchronization()
         return result.entry
     }
 
@@ -114,6 +162,7 @@ final class HabitsManager {
         let today = currentDate()
         let result = try await worker.recordGymRepetitions(repetitions, on: date, store: store, today: today)
         publish(result.update, on: today)
+        requestCloudSynchronization()
         return result.entry
     }
 
@@ -125,6 +174,7 @@ final class HabitsManager {
         let today = currentDate()
         let result = try await worker.recordRun(kilometres: kilometres, on: date, store: store, today: today)
         publish(result.update, on: today)
+        requestCloudSynchronization()
         return result.entry
     }
 
@@ -136,6 +186,7 @@ final class HabitsManager {
         let today = currentDate()
         let result = try await worker.recordSleep(hours: hours, on: date, store: store, today: today)
         publish(result.update, on: today)
+        requestCloudSynchronization()
         return result.entry
     }
 
@@ -147,6 +198,7 @@ final class HabitsManager {
         let today = currentDate()
         let result = try await worker.recordWakeTime(minutesAfterMidnight: minutesAfterMidnight, on: date, store: store, today: today)
         publish(result.update, on: today)
+        requestCloudSynchronization()
         return result.entry
     }
 
@@ -158,6 +210,7 @@ final class HabitsManager {
         let today = currentDate()
         let result = try await worker.recordGlassOfWater(on: date, store: store, today: today)
         publish(result.update, on: today)
+        requestCloudSynchronization()
         return result.entry
     }
 
@@ -169,6 +222,7 @@ final class HabitsManager {
         let today = currentDate()
         let result = try await worker.recordAlcoholicDrink(on: date, store: store, today: today)
         publish(result.update, on: today)
+        requestCloudSynchronization()
         return result.entry
     }
 
@@ -180,6 +234,7 @@ final class HabitsManager {
         let today = currentDate()
         let result = try await worker.removeCoffee(on: date, store: store, today: today)
         publish(result.update, on: today)
+        requestCloudSynchronization()
         return result.entry
     }
 
@@ -190,6 +245,7 @@ final class HabitsManager {
         let today = currentDate()
         let result = try await worker.clearGymRepetitions(on: date, store: store, today: today)
         publish(result, on: today)
+        requestCloudSynchronization()
     }
 
     @discardableResult

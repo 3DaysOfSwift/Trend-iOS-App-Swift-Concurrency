@@ -43,11 +43,7 @@ final class HabitsViewModel {
     }
     func restorePurchases() async { await purchaseFeature.restorePurchases() }
     func dismissPurchaseMessage() { purchaseFeature.dismissMessage() }
-    func loadHabitsIfRequired() async {
-        guard habitLoadState == .idle else { return }
-        await habitsFeature.refresh()
-    }
-    func refreshHabits() async { await habitsFeature.refresh() }
+    func loadHabits() async { await habitsFeature.load() }
 
     func hasCheckedIn(_ habit: Habit) -> Bool {
         habitsFeature.todaysEntry(for: habit.id) != nil
