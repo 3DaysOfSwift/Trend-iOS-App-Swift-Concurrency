@@ -8,7 +8,7 @@ import Observation
 final class RunningTrackingViewModel {
     private let habitsFeature: HabitsManager
 
-    let habit = HabitTemplate.runningDistance.habit
+    let habit = Habit(type: .runningDistance)
     var errorMessage: String?
 
     init(
@@ -36,7 +36,7 @@ final class RunningTrackingViewModel {
 
     func recordRun(kilometres: Double) async -> Bool {
         do {
-            try await habitsFeature.recordRunToday(kilometres: kilometres)
+            try await habitsFeature.recordRun(kilometres: kilometres)
             errorMessage = nil
             return true
         } catch {

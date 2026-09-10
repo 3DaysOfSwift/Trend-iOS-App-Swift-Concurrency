@@ -219,7 +219,7 @@ struct HabitsView: View {
 
     @ViewBuilder
     private func destination(for habit: Habit) -> some View {
-        switch HabitTemplate(rawValue: habit.id) {
+        switch habit.type {
         case .coffee: CoffeeTrackingView()
         case .wakeTime: WakeTimeTrackingView()
         case .gymRepetitions: GymTrackingView()
@@ -227,7 +227,6 @@ struct HabitsView: View {
         case .sleep: SleepTrackingView()
         case .water: WaterTrackingView()
         case .alcohol: AlcoholTrackingView()
-        case nil: ContentUnavailableView("Tracker unavailable", systemImage: "exclamationmark.triangle")
         }
     }
 }

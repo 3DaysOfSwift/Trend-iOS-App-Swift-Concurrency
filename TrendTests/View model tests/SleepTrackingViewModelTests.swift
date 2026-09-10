@@ -8,8 +8,8 @@ import Testing
 struct SleepTrackingViewModelTests {
     @Test func recordingSleepPublishesTodaysHours() async throws {
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: { date })
-        try await manager.selectTemplates([HabitTemplate.sleep.id])
+        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: { date })
+        try await manager.selectHabits([Habit(type: .sleep).id])
         let viewModel = SleepTrackingViewModel(habitsFeature: manager)
 
         #expect(await viewModel.recordSleep(hours: 7.5))

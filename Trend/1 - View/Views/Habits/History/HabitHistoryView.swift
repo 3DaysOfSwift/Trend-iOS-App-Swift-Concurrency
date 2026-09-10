@@ -15,22 +15,21 @@ struct HabitHistoryView: View {
                 )
             } else {
                 List(viewModel.entries) { entry in
-                    if let habit = viewModel.habit(for: entry) {
-                        HStack(spacing: 14) {
-                            Image(systemName: habit.symbol)
-                                .frame(width: 30)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(habit.name).font(.headline)
-                                Text(entry.date, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day().year())
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Text(viewModel.valueDescription(for: entry))
-                                .font(.headline.monospacedDigit())
+                    let habit = viewModel.habit(for: entry)
+                    HStack(spacing: 14) {
+                        Image(systemName: habit.symbol)
+                            .frame(width: 30)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(habit.name).font(.headline)
+                            Text(entry.date, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day().year())
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
-                        .padding(.vertical, 4)
+                        Spacer()
+                        Text(viewModel.valueDescription(for: entry))
+                            .font(.headline.monospacedDigit())
                     }
+                    .padding(.vertical, 4)
                 }
             }
         }

@@ -14,16 +14,16 @@ final class HabitLibraryViewModel {
 
     init(habitsFeature: HabitsManager = AppModel.shared.habitsFeature) {
         self.habitsFeature = habitsFeature
-        selection = Set(habitsFeature.habits.map(\.id))
+        selection = Set(habitsFeature.enabledHabits.map(\.id))
     }
 
-    var templates: [HabitTemplate] { HabitTemplate.allCases }
+    var habits: [Habit] = Habit.allHabits
 
-    func toggle(_ template: HabitTemplate) {
-        if selection.contains(template.id) {
-            selection.remove(template.id)
+    func toggle(_ habit: Habit) {
+        if selection.contains(habit.id) {
+            selection.remove(habit.id)
         } else {
-            selection.insert(template.id)
+            selection.insert(habit.id)
         }
     }
 
@@ -31,7 +31,7 @@ final class HabitLibraryViewModel {
         isSaving = true
         defer { isSaving = false }
         do {
-            try await habitsFeature.selectTemplates(selection)
+            try await habitsFeature.selectHabits(selection)
             return true
         } catch {
             errorMessage = error.localizedDescription

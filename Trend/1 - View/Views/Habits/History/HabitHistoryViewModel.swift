@@ -14,12 +14,12 @@ final class HabitHistoryViewModel {
 
     var entries: [HabitEntry] { habitsFeature.entries }
 
-    func habit(for entry: HabitEntry) -> Habit? {
-        HabitTemplate(rawValue: entry.habitID)?.habit
+    func habit(for entry: HabitEntry) -> Habit {
+        Habit(type: entry.habitType)
     }
 
     func valueDescription(for entry: HabitEntry) -> String {
-        guard let habit = habit(for: entry) else { return entry.value.formatted() }
+        let habit = habit(for: entry)
         switch habit.valueType {
         case .timeOfDay:
             let hour = Int(entry.value) / 60

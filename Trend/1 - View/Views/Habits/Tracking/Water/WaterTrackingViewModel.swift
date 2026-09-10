@@ -8,7 +8,7 @@ import Observation
 final class WaterTrackingViewModel {
     private let habitsFeature: HabitsManager
 
-    let habit = HabitTemplate.water.habit
+    let habit = Habit(type: .water)
     var errorMessage: String?
 
     init(
@@ -28,7 +28,7 @@ final class WaterTrackingViewModel {
 
     func recordGlass() async -> Bool {
         do {
-            try await habitsFeature.recordGlassOfWaterToday()
+            try await habitsFeature.recordGlassOfWater()
             errorMessage = nil
             return true
         } catch {

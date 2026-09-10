@@ -8,8 +8,8 @@ import Testing
 struct CoffeeTrackingViewModelTests {
     @Test func recordingAndRemovingCoffeeUpdatesToday() async throws {
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: { date })
-        try await manager.selectTemplates([HabitTemplate.coffee.id])
+        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: { date })
+        try await manager.selectHabits([Habit(type: .coffee).id])
         let viewModel = CoffeeTrackingViewModel(habitsFeature: manager)
 
         #expect(await viewModel.recordCoffee())

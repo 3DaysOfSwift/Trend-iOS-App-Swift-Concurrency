@@ -8,8 +8,8 @@ import Testing
 struct RunningTrackingViewModelTests {
     @Test func multipleRunsPreserveTodaysDistanceAndRunCount() async throws {
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: { date })
-        try await manager.selectTemplates([HabitTemplate.runningDistance.id])
+        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: { date })
+        try await manager.selectHabits([Habit(type: .runningDistance).id])
         let viewModel = RunningTrackingViewModel(habitsFeature: manager)
 
         #expect(await viewModel.recordRun(kilometres: 5))

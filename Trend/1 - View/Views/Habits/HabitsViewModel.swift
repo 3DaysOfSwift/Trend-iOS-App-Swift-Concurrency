@@ -22,8 +22,8 @@ final class HabitsViewModel {
         self.calendar = calendar
     }
 
-    var habits: [Habit] { habitsFeature.habits }
-    var habitLoadState: HabitLoadState { habitsFeature.loadState }
+    var habits: [Habit] { habitsFeature.enabledHabits }
+    var habitLoadState: HabitsManager.HabitLoadState { habitsFeature.loadState }
     var hasUnlockedHabits: Bool { purchaseFeature.hasUnlockedHabits }
     var isLoadingPurchase: Bool { purchaseFeature.isLoading }
     var isPurchasing: Bool { purchaseFeature.isPurchasing }

@@ -224,7 +224,10 @@ The lower layers retain focused tests for chart preparation, canonical unit pers
 
 ### Habits: observable manager and worker actor
 
-`HabitsManager` owns observable entries and prepared weekly and lifetime summaries.
+`HabitsManager` stores one observable `HabitData` containing the selected habit IDs
+and recorded entries. Its public `habits` and `entries` getters read that store;
+they do not keep separate copies. Prepared weekly and lifetime summaries remain
+calculated results.
 Its private `HabitsWorker` actor validates commands, saves and loads data, and
 calculates those results. ViewModels retain the manager; they never access the worker.
 The worker keeps no persistent copy of the manager's state. Named worker methods load, record, or remove entries directly; there is no action dispatcher. Recording methods return the saved entry after the manager publishes the completed result.
@@ -249,7 +252,7 @@ observe the manager and do not reload it on appearance. Calendar changes call
 complete while synchronization is waiting for the network. Local changes still take turns
 because they modify the same file. This is a habit-storage rule, not an app-wide queue.
 
-`FileHabitRepository` writes the current entries and the last synchronized store
+`FileHabitDataStore` writes the current entries and the last synchronized store
 in one atomic JSON write. The stored comparison version identifies pending edits
 and deletions; it is storage information, not another observable feature manager.
 There is no separate pending-upload marker to fail after an otherwise successful save.

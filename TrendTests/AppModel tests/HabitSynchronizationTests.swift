@@ -12,10 +12,10 @@ struct HabitSynchronizationTests {
         let file = temporaryFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
         let coffee = entry(.coffee, value: 2)
-        let cache = FileHabitRepository(fileURL: file)
-        try await cache.save(store([coffee]))
-        let cloud = PausedHabitCloud(store: store([]))
-        let manager = HabitsManager(repository: CloudKitHabitRepository(cache: cache, cloud: cloud), currentDate: { date })
+        let cache = FileHabitDataStore(fileURL: file)
+        try await cache.seed(data([coffee]))
+        let cloud = PausedHabitCloud(data: data([]))
+        let manager = HabitsManager(dataStore: CloudKitHabitDataStore(cache: cache, cloud: cloud), currentDate: { date })
         await manager.load()
         #expect(manager.entries == [coffee])
         #expect(await cloud.requestCount == 0)
@@ -29,9 +29,9 @@ struct HabitSynchronizationTests {
     @Test func overlappingSynchronizationRequestsShareOneCloudCall() async throws {
         let file = temporaryFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
-        let cloud = PausedHabitCloud(store: store([]))
-        let manager = HabitsManager(repository: CloudKitHabitRepository(
-            cache: FileHabitRepository(fileURL: file), cloud: cloud), currentDate: { date })
+        let cloud = PausedHabitCloud(data: data([]))
+        let manager = HabitsManager(dataStore: CloudKitHabitDataStore(
+            cache: FileHabitDataStore(fileURL: file), cloud: cloud), currentDate: { date })
         await manager.load()
         await cloud.pauseNextRequest()
         var started = 0
@@ -54,21 +54,21 @@ struct HabitSynchronizationTests {
     @Test func localDataAndRecordingDoNotWaitForCloud() async throws {
         let file = temporaryFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
-        let cache = FileHabitRepository(fileURL: file)
-        try await cache.save(store([]))
+        let cache = FileHabitDataStore(fileURL: file)
+        try await cache.seed(data([]))
         let water = entry(.water, value: 2)
-        let cloud = PausedHabitCloud(store: store([water]))
+        let cloud = PausedHabitCloud(data: data([water]))
         await cloud.pauseNextRequest()
-        let repository = CloudKitHabitRepository(cache: cache, cloud: cloud)
-        let manager = HabitsManager(repository: repository, currentDate: { date })
+        let dataStore = CloudKitHabitDataStore(cache: cache, cloud: cloud)
+        let manager = HabitsManager(dataStore: dataStore, currentDate: { date })
         let refresh = Task { await manager.synchronize() }
         await cloud.waitForPausedRequest()
         #expect(manager.loadState == .ready)
 
         // This must finish while iCloud is still paused.
-        let coffee = try await manager.recordCoffeeToday()
+        let coffee = try await manager.recordCoffee()
         #expect(coffee.value == 1)
-        #expect(manager.todaysEntry(for: HabitTemplate.coffee.id) == coffee)
+        #expect(manager.todaysEntry(for: Habit(type: .coffee).id) == coffee)
         #expect(await cloud.requestCount == 1)
         await cloud.releaseRequest()
         await refresh.value
@@ -82,13 +82,13 @@ struct HabitSynchronizationTests {
     @Test func cloudFailureDoesNotTurnASavedEntryIntoAFailedSave() async throws {
         let file = temporaryFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
-        let cache = FileHabitRepository(fileURL: file)
-        try await cache.save(store([]))
-        let cloud = PausedHabitCloud(store: store([]))
+        let cache = FileHabitDataStore(fileURL: file)
+        try await cache.seed(data([]))
+        let cloud = PausedHabitCloud(data: data([]))
         await cloud.setFailure(true)
-        let manager = HabitsManager(repository: CloudKitHabitRepository(cache: cache, cloud: cloud), currentDate: { date })
+        let manager = HabitsManager(dataStore: CloudKitHabitDataStore(cache: cache, cloud: cloud), currentDate: { date })
         await manager.synchronize()
-        let coffee = try await manager.recordCoffeeToday()
+        let coffee = try await manager.recordCoffee()
         #expect(manager.loadState == .ready)
         #expect(try await cache.load().entries == [coffee])
         await manager.synchronize()
@@ -104,13 +104,13 @@ struct HabitSynchronizationTests {
     @Test func savingAnOlderManagerCopyPreservesDownloadedEntries() async throws {
         let file = temporaryFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
-        let cache = FileHabitRepository(fileURL: file)
-        let previous = store([])
-        try await cache.save(previous)
+        let cache = FileHabitDataStore(fileURL: file)
+        let previous = data([])
+        try await cache.seed(previous)
         let water = entry(.water, value: 2)
-        try await cache.acceptSynchronizedStore(store([water]), localAtStart: previous)
+        try await cache.acceptSynchronizedData(data([water]), localAtStart: previous)
         let coffee = entry(.coffee, value: 1)
-        let saved = try await cache.save(store([coffee]), replacing: previous)
+        let saved = try await cache.save(data([coffee]), replacing: previous)
         #expect(saved.entries.count == 2)
         #expect(saved.entries.contains(water))
         #expect(saved.entries.contains(coffee))
@@ -119,21 +119,21 @@ struct HabitSynchronizationTests {
     @Test func lastSynchronizedHistorySurvivesRestartAndPreservesDeletions() async throws {
         let file = temporaryFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
-        let cache = FileHabitRepository(fileURL: file)
+        let cache = FileHabitDataStore(fileURL: file)
         let coffee = entry(.coffee, value: 1)
-        let initial = store([coffee])
-        try await cache.save(initial)
-        try await cache.acceptSynchronizedStore(initial, localAtStart: initial)
-        try await cache.save(store([]))
+        let initial = data([coffee])
+        try await cache.seed(initial)
+        try await cache.acceptSynchronizedData(initial, localAtStart: initial)
+        try await cache.seed(data([]))
 
-        let reopened = FileHabitRepository(fileURL: file)
+        let reopened = FileHabitDataStore(fileURL: file)
         let document = try await reopened.readDocument()
-        #expect(document.store.entries.isEmpty)
-        #expect(document.lastSynchronizedStore == initial)
+        #expect(document.data.entries.isEmpty)
+        #expect(document.lastSynchronizedData == initial)
         let water = entry(.water, value: 3)
-        let cloud = PausedHabitCloud(store: store([coffee, water]))
-        let repository = CloudKitHabitRepository(cache: reopened, cloud: cloud)
-        try await repository.synchronize()
+        let cloud = PausedHabitCloud(data: data([coffee, water]))
+        let dataStore = CloudKitHabitDataStore(cache: reopened, cloud: cloud)
+        try await dataStore.synchronize()
         #expect(try await reopened.load().entries == [water])
         #expect(await cloud.currentStore.entries == [water])
     }
@@ -141,26 +141,26 @@ struct HabitSynchronizationTests {
     @Test func deletionDuringUploadRemainsPendingAfterTheUploadFinishes() async throws {
         let file = temporaryFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
-        let cache = FileHabitRepository(fileURL: file)
+        let cache = FileHabitDataStore(fileURL: file)
         let coffee = entry(.coffee, value: 1)
-        let atStart = store([coffee])
-        try await cache.save(atStart)
-        try await cache.save(store([]))
-        try await cache.acceptSynchronizedStore(atStart, localAtStart: atStart)
+        let atStart = data([coffee])
+        try await cache.seed(atStart)
+        try await cache.seed(data([]))
+        try await cache.acceptSynchronizedData(atStart, localAtStart: atStart)
         let document = try await cache.readDocument()
-        #expect(document.store.entries.isEmpty)
-        #expect(document.lastSynchronizedStore == atStart)
-        let cloud = PausedHabitCloud(store: atStart)
-        try await CloudKitHabitRepository(cache: cache, cloud: cloud).synchronize()
+        #expect(document.data.entries.isEmpty)
+        #expect(document.lastSynchronizedData == atStart)
+        let cloud = PausedHabitCloud(data: atStart)
+        try await CloudKitHabitDataStore(cache: cache, cloud: cloud).synchronize()
         #expect(await cloud.currentStore.entries.isEmpty)
     }
 
     @Test func differentDaysAndRemoteDeletionArePreserved() async throws {
-        let merge = HabitStoreChanges(calendar: .current)
+        let merge = HabitDataChanges(calendar: .current)
         let yesterday = entry(.coffee, value: 2, on: date.addingTimeInterval(-86_400))
         let today = entry(.coffee, value: 3)
         let water = entry(.water, value: 4)
-        let result = merge.apply(from: store([yesterday]), to: store([yesterday, today]), onto: store([water]))
+        let result = merge.apply(from: data([yesterday]), to: data([yesterday, today]), onto: data([water]))
         #expect(result.entries.count == 2)
         #expect(result.entries.contains(today))
         #expect(result.entries.contains(water))
@@ -168,21 +168,21 @@ struct HabitSynchronizationTests {
     }
 
     @Test func pendingLocalEditWinsWhenBothDevicesEditTheSameDay() async throws {
-        let merge = HabitStoreChanges(calendar: .current)
+        let merge = HabitDataChanges(calendar: .current)
         let original = entry(.coffee, value: 1)
         let local = entry(.coffee, value: 2)
         let remote = entry(.coffee, value: 3)
-        let result = merge.apply(from: store([original]), to: store([local]), onto: store([remote]))
+        let result = merge.apply(from: data([original]), to: data([local]), onto: data([remote]))
         #expect(result.entries == [local])
     }
 
     @Test func independentHabitSelectionsAreMerged() async throws {
-        let merge = HabitStoreChanges(calendar: .current)
-        let before = HabitStore(selectedHabitIDs: [HabitTemplate.coffee.id], entries: [])
-        let local = HabitStore(selectedHabitIDs: [HabitTemplate.water.id], entries: [])
-        let remote = HabitStore(selectedHabitIDs: [HabitTemplate.coffee.id, HabitTemplate.sleep.id], entries: [])
+        let merge = HabitDataChanges(calendar: .current)
+        let before = HabitData(selectedHabitIDs: [Habit(type: .coffee).id], entries: [])
+        let local = HabitData(selectedHabitIDs: [Habit(type: .water).id], entries: [])
+        let remote = HabitData(selectedHabitIDs: [Habit(type: .coffee).id, Habit(type: .sleep).id], entries: [])
         let result = merge.apply(from: before, to: local, onto: remote)
-        #expect(Set(result.selectedHabitIDs) == Set([HabitTemplate.water.id, HabitTemplate.sleep.id]))
+        #expect(result.selectedHabitIDs == [Habit(type: .water).id, Habit(type: .sleep).id])
     }
 
     @Test func failingLocalWriteDoesNotPublishAnUnsavedEntry() async throws {
@@ -190,15 +190,15 @@ struct HabitSynchronizationTests {
         let directory = file.deletingLastPathComponent()
         defer { try? FileManager.default.removeItem(at: directory) }
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let cache = FileHabitRepository(fileURL: file)
-        try await cache.save(store([]))
-        let manager = HabitsManager(repository: cache, currentDate: { date })
+        let cache = FileHabitDataStore(fileURL: file)
+        try await cache.seed(data([]))
+        let manager = HabitsManager(dataStore: cache, currentDate: { date })
         await manager.load()
         // Replace the destination with a directory, so a file write must fail.
         try FileManager.default.removeItem(at: file)
         try FileManager.default.createDirectory(at: file, withIntermediateDirectories: false)
         do {
-            try await manager.recordCoffeeToday()
+            try await manager.recordCoffee()
             #expect(false)
         } catch {}
         #expect(manager.entries.isEmpty)
@@ -209,26 +209,26 @@ struct HabitSynchronizationTests {
             .appending(path: "habits.json")
     }
 
-    private func entry(_ habit: HabitTemplate, value: Double, on day: Date? = nil) -> HabitEntry {
-        HabitEntry(id: UUID(), habitID: habit.id, date: day ?? date, value: value)
+    private func entry(_ type: Habit.HabitType, value: Double, on day: Date? = nil) -> HabitEntry {
+        HabitEntry(id: UUID(), habitType: type, date: day ?? date, value: value)
     }
 
-    private func store(_ entries: [HabitEntry]) -> HabitStore {
-        HabitStore(selectedHabitIDs: [HabitTemplate.coffee.id, HabitTemplate.water.id], entries: entries)
+    private func data(_ entries: [HabitEntry]) -> HabitData {
+        HabitData(selectedHabitIDs: [Habit(type: .coffee).id, Habit(type: .water).id], entries: entries)
     }
 }
 
 private actor PausedHabitCloud: HabitCloudClient {
-    private(set) var currentStore: HabitStore
+    private(set) var currentStore: HabitData
     private(set) var requestCount = 0
     private var shouldPause = false
     private var shouldFail = false
     private var paused: CheckedContinuation<Void, Never>?
     private var started: CheckedContinuation<Void, Never>?
 
-    init(store: HabitStore) { currentStore = store }
+    init(data: HabitData) { currentStore = data }
 
-    func merge(_ local: HabitStore, since previous: HabitStore?) async throws -> HabitStore {
+    func merge(_ local: HabitData, since previous: HabitData?) async throws -> HabitData {
         requestCount += 1
         if shouldPause {
             shouldPause = false
@@ -239,8 +239,8 @@ private actor PausedHabitCloud: HabitCloudClient {
             }
         }
         if shouldFail { throw CocoaError(.fileReadUnknown) }
-        currentStore = HabitStoreChanges(calendar: .current).apply(
-            from: previous ?? HabitStore(selectedHabitIDs: [], entries: []), to: local, onto: currentStore)
+        currentStore = HabitDataChanges(calendar: .current).apply(
+            from: previous ?? HabitData(selectedHabitIDs: [], entries: []), to: local, onto: currentStore)
         return currentStore
     }
 
@@ -251,4 +251,10 @@ private actor PausedHabitCloud: HabitCloudClient {
         await withCheckedContinuation { started = $0 }
     }
     func releaseRequest() { paused?.resume(); paused = nil }
+}
+
+private extension FileHabitDataStore {
+    func seed(_ data: HabitData) async throws {
+        _ = try await save(data, replacing: load())
+    }
 }

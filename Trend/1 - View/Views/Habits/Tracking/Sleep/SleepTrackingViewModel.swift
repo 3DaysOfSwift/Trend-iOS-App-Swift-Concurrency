@@ -8,7 +8,7 @@ import Observation
 final class SleepTrackingViewModel {
     private let habitsFeature: HabitsManager
 
-    let habit = HabitTemplate.sleep.habit
+    let habit = Habit(type: .sleep)
     var errorMessage: String?
 
     init(
@@ -32,7 +32,7 @@ final class SleepTrackingViewModel {
 
     func recordSleep(hours: Double) async -> Bool {
         do {
-            try await habitsFeature.recordSleepToday(hours: hours)
+            try await habitsFeature.recordSleep(hours: hours)
             errorMessage = nil
             return true
         } catch {

@@ -17,9 +17,8 @@ struct HabitLibraryView: View {
                 }
 
                 Section("Choose your focus") {
-                    ForEach(viewModel.templates) { template in
-                        let habit = template.habit
-                        Button { viewModel.toggle(template) } label: {
+                    ForEach(viewModel.habits) { habit in
+                        Button { viewModel.toggle(habit) } label: {
                             HStack(spacing: 14) {
                                 Image(systemName: habit.symbol)
                                     .frame(width: 30)
@@ -31,9 +30,9 @@ struct HabitLibraryView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Image(systemName: viewModel.selection.contains(template.id) ? "checkmark.circle.fill" : "circle")
+                                Image(systemName: viewModel.selection.contains(habit.id) ? "checkmark.circle.fill" : "circle")
                                     .font(.title3)
-                                    .foregroundStyle(viewModel.selection.contains(template.id) ? themeManager.palette.accent : .secondary)
+                                    .foregroundStyle(viewModel.selection.contains(habit.id) ? themeManager.palette.accent : .secondary)
                             }
                             .contentShape(Rectangle())
                         }

@@ -50,10 +50,10 @@ final class AppModel {
         let dailyTips = DailyTipManager(currentDate: currentDate)
         let dailyStreak = DailyStreakManager(trend: dailyTrend, currentDate: currentDate)
         let backupFiles = BackupFileManager()
-        let habitRepository = CloudKitHabitRepository(
-            cache: FileHabitRepository(), cloud: CloudKitHabitClient())
+        let habitDataStore = CloudKitHabitDataStore(
+            cache: FileHabitDataStore(), cloud: CloudKitHabitClient())
         let habits = HabitsManager(
-            repository: habitRepository,
+            dataStore: habitDataStore,
             currentDate: currentDate
         )
         let purchases = PurchaseManager(client: StoreKitPurchaseClient())

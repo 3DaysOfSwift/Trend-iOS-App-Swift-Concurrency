@@ -4,10 +4,10 @@ import Foundation
 
 // Apply only the entries and selections that changed, preserving everything else.
 // A changed or deleted local entry wins if both sides edited the same habit/day.
-struct HabitStoreChanges {
+struct HabitDataChanges {
     let calendar: Calendar
 
-    func apply(from previous: HabitStore, to updated: HabitStore, onto latest: HabitStore) -> HabitStore {
+    func apply(from previous: HabitData, to updated: HabitData, onto latest: HabitData) -> HabitData {
         let before = entriesByDay(previous.entries)
         let after = entriesByDay(updated.entries)
         var merged = entriesByDay(latest.entries)
@@ -16,13 +16,11 @@ struct HabitStoreChanges {
             merged[day] = after[day]
         }
 
-        let previousIDs = Set(previous.selectedHabitIDs)
-        let updatedIDs = Set(updated.selectedHabitIDs)
-        var selectedIDs = Set(latest.selectedHabitIDs)
-        selectedIDs.subtract(previousIDs.subtracting(updatedIDs))
-        selectedIDs.formUnion(updatedIDs.subtracting(previousIDs))
-        return HabitStore(
-            selectedHabitIDs: selectedIDs.sorted(),
+        var selectedIDs = latest.selectedHabitIDs
+        selectedIDs.subtract(previous.selectedHabitIDs.subtracting(updated.selectedHabitIDs))
+        selectedIDs.formUnion(updated.selectedHabitIDs.subtracting(previous.selectedHabitIDs))
+        return HabitData(
+            selectedHabitIDs: selectedIDs,
             entries: merged.values.sorted {
                 if $0.date != $1.date { return $0.date > $1.date }
                 return $0.id.uuidString < $1.id.uuidString
@@ -31,14 +29,14 @@ struct HabitStoreChanges {
     }
 
     private struct HabitDay: Hashable {
-        let habitID: String
+        let habitType: Habit.HabitType
         let date: Date
     }
 
     private func entriesByDay(_ entries: [HabitEntry]) -> [HabitDay: HabitEntry] {
         var result: [HabitDay: HabitEntry] = [:]
         for entry in entries.sorted(by: { $0.date > $1.date }) {
-            let day = HabitDay(habitID: entry.habitID, date: calendar.startOfDay(for: entry.date))
+            let day = HabitDay(habitType: entry.habitType, date: calendar.startOfDay(for: entry.date))
             if result[day] == nil { result[day] = entry }
         }
         return result

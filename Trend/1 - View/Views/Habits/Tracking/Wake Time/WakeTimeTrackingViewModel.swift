@@ -9,7 +9,7 @@ final class WakeTimeTrackingViewModel {
     private let habitsFeature: HabitsManager
     private let calendar: Calendar
 
-    let habit = HabitTemplate.wakeTime.habit
+    let habit = Habit(type: .wakeTime)
     var errorMessage: String?
 
     init(
@@ -32,7 +32,7 @@ final class WakeTimeTrackingViewModel {
     var timeForPicker: Date {
         guard let entry = habitsFeature.todaysEntry(for: habit.id) else {
             let today = Date.now
-            let suggestedMinutes = Int(HabitTemplate.wakeTime.recordingPolicy.defaultValue)
+            let suggestedMinutes = Int(Habit(type: .wakeTime).recordingPolicy.defaultValue)
             return calendar.date(
                 bySettingHour: suggestedMinutes / 60,
                 minute: suggestedMinutes % 60,
@@ -52,7 +52,7 @@ final class WakeTimeTrackingViewModel {
     func recordTime(_ time: Date) async -> Bool {
         let components = calendar.dateComponents([.hour, .minute], from: time)
         do {
-            try await habitsFeature.recordWakeTimeToday(
+            try await habitsFeature.recordWakeTime(
                 minutesAfterMidnight: (components.hour ?? 0) * 60 + (components.minute ?? 0)
             )
             errorMessage = nil

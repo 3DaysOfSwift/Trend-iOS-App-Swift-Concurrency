@@ -8,7 +8,7 @@ import Observation
 final class CoffeeTrackingViewModel {
     private let habitsFeature: HabitsManager
 
-    let habit = HabitTemplate.coffee.habit
+    let habit = Habit(type: .coffee)
     var errorMessage: String?
 
     init(
@@ -34,11 +34,11 @@ final class CoffeeTrackingViewModel {
     }
 
     func recordCoffee() async -> Bool {
-        await perform { try await habitsFeature.recordCoffeeToday() }
+        await perform { try await habitsFeature.recordCoffee() }
     }
 
     func removeCoffee() async -> Bool {
-        await perform { try await habitsFeature.removeCoffeeToday() }
+        await perform { try await habitsFeature.removeCoffee() }
     }
 
     private func perform(_ operation: () async throws -> Void) async -> Bool {

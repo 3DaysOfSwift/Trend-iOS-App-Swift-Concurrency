@@ -4,36 +4,36 @@ import CloudKit
 import Foundation
 
 protocol HabitCloudClient: Sendable {
-    func merge(_ local: HabitStore, since previous: HabitStore?) async throws -> HabitStore
+    func merge(_ local: HabitData, since previous: HabitData?) async throws -> HabitData
 }
 
 actor CloudKitHabitClient: HabitCloudClient {
     private let database: CKDatabase
-    private let changes: HabitStoreChanges
+    private let changes: HabitDataChanges
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private let recordID = CKRecord.ID(recordName: "primary")
 
     init(container: CKContainer = .default(), calendar: Calendar = .current) {
         database = container.privateCloudDatabase
-        changes = HabitStoreChanges(calendar: calendar)
+        changes = HabitDataChanges(calendar: calendar)
         encoder.dateEncodingStrategy = .iso8601
         decoder.dateDecodingStrategy = .iso8601
     }
 
-    func merge(_ local: HabitStore, since previous: HabitStore?) async throws -> HabitStore {
+    func merge(_ local: HabitData, since previous: HabitData?) async throws -> HabitData {
         // Retry only a conflicting edit from another device; other failures reach the caller.
         for attempt in 0..<3 {
             let record = try await fetchRecord()
-            let remote: HabitStore
+            let remote: HabitData
             if let payload = record["payload"] as? Data {
-                remote = try decoder.decode(HabitStore.self, from: payload)
+                remote = try decoder.decode(HabitData.self, from: payload)
             } else {
                 // A new cloud record must receive the complete local history.
-                remote = previous ?? HabitStore(selectedHabitIDs: [], entries: [])
+                remote = previous ?? HabitData(selectedHabitIDs: [], entries: [])
             }
             let merged = changes.apply(
-                from: previous ?? HabitStore(selectedHabitIDs: [], entries: []),
+                from: previous ?? HabitData(selectedHabitIDs: [], entries: []),
                 to: local, onto: remote)
             if record.recordChangeTag != nil, merged == remote { return merged }
             record["payload"] = try encoder.encode(merged) as CKRecordValue

@@ -7,23 +7,23 @@ import Testing
 struct HabitLibraryViewModelTests {
     @Test func toggleAddsAndRemovesASelection() {
         let viewModel = HabitLibraryViewModel(
-            habitsFeature: HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
+            habitsFeature: HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
         )
 
-        viewModel.toggle(.coffee)
-        #expect(viewModel.selection == [HabitTemplate.coffee.id])
-        viewModel.toggle(.coffee)
+        viewModel.toggle(Habit(type: .coffee))
+        #expect(viewModel.selection == [Habit(type: .coffee).id])
+        viewModel.toggle(Habit(type: .coffee))
         #expect(viewModel.selection.isEmpty)
     }
 
-    @Test func savePublishesTheSelectedTemplates() async {
-        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: TestAppModelFactory.currentDate)
+    @Test func savePublishesTheSelectedHabits() async {
+        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
         let viewModel = HabitLibraryViewModel(habitsFeature: manager)
-        viewModel.selection = [HabitTemplate.sleep.id, HabitTemplate.water.id]
+        viewModel.selection = [Habit(type: .sleep).id, Habit(type: .water).id]
 
         let succeeded = await viewModel.save()
 
         #expect(succeeded)
-        #expect(manager.habits.map(\.id) == [HabitTemplate.sleep.id, HabitTemplate.water.id])
+        #expect(Set(manager.enabledHabits.map(\.id)) == [Habit(type: .sleep).id, Habit(type: .water).id])
     }
 }

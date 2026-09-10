@@ -45,7 +45,7 @@ enum TestAppModelFactory {
                 dailyStreak: dailyStreak,
                 backupFiles: BackupFileManager()
             ),
-            habitsFeature: HabitsManager(repository: InMemoryHabitRepository(), currentDate: currentDate),
+            habitsFeature: HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: currentDate),
             purchaseFeature: PurchaseManager(client: purchaseClient),
             dailyTips: dailyTips
         )

@@ -8,7 +8,7 @@ import Observation
 final class AlcoholTrackingViewModel {
     private let habitsFeature: HabitsManager
 
-    let habit = HabitTemplate.alcohol.habit
+    let habit = Habit(type: .alcohol)
     var errorMessage: String?
 
     init(
@@ -28,7 +28,7 @@ final class AlcoholTrackingViewModel {
 
     func recordDrink() async -> Bool {
         do {
-            try await habitsFeature.recordAlcoholicDrinkToday()
+            try await habitsFeature.recordAlcoholicDrink()
             errorMessage = nil
             return true
         } catch {

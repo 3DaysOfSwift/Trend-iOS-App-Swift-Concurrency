@@ -17,9 +17,9 @@ struct HabitsWorkerIntegrationTests {
     }
 
     private func checkSharedLoad(failing: Bool) async {
-        let repository = SuspendedHabitRepository()
-        let manager = HabitsManager(repository: repository, currentDate: TestAppModelFactory.currentDate)
-        await repository.pauseNextLoad()
+        let dataStore = SuspendedHabitDataStore()
+        let manager = HabitsManager(dataStore: dataStore, currentDate: TestAppModelFactory.currentDate)
+        await dataStore.pauseNextLoad()
         var started = 0
         var finished = 0
         let callers = (0..<4).map { _ in
@@ -34,54 +34,54 @@ struct HabitsWorkerIntegrationTests {
                 finished += 1
             }
         }
-        await repository.waitForPausedLoad()
+        await dataStore.waitForPausedLoad()
         while started < 4 { await Task.yield() }
         #expect(finished == 0)
-        #expect(await repository.loadCount == 1)
+        #expect(await dataStore.loadCount == 1)
         callers[0].cancel()
-        await repository.releaseLoad(failing: failing)
+        await dataStore.releaseLoad(failing: failing)
         for caller in callers { await caller.value }
         #expect(finished == 4)
-        #expect(await repository.loadCount == 1)
+        #expect(await dataStore.loadCount == 1)
 
         await manager.load()
-        #expect(await repository.loadCount == (failing ? 2 : 1))
+        #expect(await dataStore.loadCount == (failing ? 2 : 1))
         #expect(manager.loadState == .ready)
         #expect(manager.errorMessage == nil)
     }
 
     @Test func overlappingRecordingsPreserveBothValues() async throws {
-        let repository = SuspendedHabitRepository()
+        let dataStore = SuspendedHabitDataStore()
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        let manager = HabitsManager(repository: repository, currentDate: { date })
-        try await manager.selectTemplates([HabitTemplate.coffee.id])
-        await repository.pauseNextSave()
-        let first = Task { try await manager.recordCoffeeToday() }
-        await repository.waitForPausedSave()
-        let second = Task { try await manager.recordCoffeeToday() }
+        let manager = HabitsManager(dataStore: dataStore, currentDate: { date })
+        try await manager.selectHabits([Habit(type: .coffee).id])
+        await dataStore.pauseNextSave()
+        let first = Task { try await manager.recordCoffee() }
+        await dataStore.waitForPausedSave()
+        let second = Task { try await manager.recordCoffee() }
         #expect(manager.entries.isEmpty)
-        await repository.releaseSave()
+        await dataStore.releaseSave()
         let firstEntry = try await first.value
         let secondEntry = try await second.value
         #expect(firstEntry.value == 1)
         #expect(secondEntry.value == 2)
         #expect(firstEntry.id != secondEntry.id)
-        #expect(manager.todaysEntry(for: HabitTemplate.coffee.id) == secondEntry)
-        #expect(manager.todaysEntry(for: HabitTemplate.coffee.id)?.value == 2)
-        #expect(manager.currentWeekSummary(for: HabitTemplate.coffee.id).totalValue == 2)
-        let saved = try await repository.load()
+        #expect(manager.todaysEntry(for: Habit(type: .coffee).id) == secondEntry)
+        #expect(manager.todaysEntry(for: Habit(type: .coffee).id)?.value == 2)
+        #expect(manager.currentWeekSummary(for: Habit(type: .coffee).id).totalValue == 2)
+        let saved = try await dataStore.load()
         #expect(saved.entries.first?.value == 2)
     }
 
     @Test func loadingAfterARecordingKeepsTheSavedData() async throws {
-        let repository = SuspendedHabitRepository()
-        let manager = HabitsManager(repository: repository, currentDate: TestAppModelFactory.currentDate)
-        try await manager.selectTemplates([HabitTemplate.water.id])
-        await repository.pauseNextSave()
-        let recording = Task { try await manager.recordGlassOfWaterToday() }
-        await repository.waitForPausedSave()
+        let dataStore = SuspendedHabitDataStore()
+        let manager = HabitsManager(dataStore: dataStore, currentDate: TestAppModelFactory.currentDate)
+        try await manager.selectHabits([Habit(type: .water).id])
+        await dataStore.pauseNextSave()
+        let recording = Task { try await manager.recordGlassOfWater() }
+        await dataStore.waitForPausedSave()
         let refresh = Task { await manager.load() }
-        await repository.releaseSave()
+        await dataStore.releaseSave()
         try await recording.value
         await refresh.value
         #expect(manager.entries.first?.value == 1)
@@ -89,35 +89,35 @@ struct HabitsWorkerIntegrationTests {
     }
 
     @Test func failedSavePreservesPublishedValuesAndAllowsTheNextOperation() async throws {
-        let repository = SuspendedHabitRepository()
+        let dataStore = SuspendedHabitDataStore()
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        let manager = HabitsManager(repository: repository, currentDate: { date })
-        try await manager.selectTemplates([HabitTemplate.coffee.id])
-        try await manager.recordCoffeeToday()
-        await repository.pauseNextSave()
-        let failed = Task { try await manager.recordCoffeeToday() }
-        await repository.waitForPausedSave()
-        await repository.releaseSave(failing: true)
+        let manager = HabitsManager(dataStore: dataStore, currentDate: { date })
+        try await manager.selectHabits([Habit(type: .coffee).id])
+        try await manager.recordCoffee()
+        await dataStore.pauseNextSave()
+        let failed = Task { try await manager.recordCoffee() }
+        await dataStore.waitForPausedSave()
+        await dataStore.releaseSave(failing: true)
         do {
             try await failed.value
             #expect(false)
         } catch {}
-        #expect(manager.todaysEntry(for: HabitTemplate.coffee.id)?.value == 1)
-        #expect(manager.currentWeekSummary(for: HabitTemplate.coffee.id).totalValue == 1)
-        try await manager.recordCoffeeToday()
-        #expect(manager.todaysEntry(for: HabitTemplate.coffee.id)?.value == 2)
+        #expect(manager.todaysEntry(for: Habit(type: .coffee).id)?.value == 1)
+        #expect(manager.currentWeekSummary(for: Habit(type: .coffee).id).totalValue == 1)
+        try await manager.recordCoffee()
+        #expect(manager.todaysEntry(for: Habit(type: .coffee).id)?.value == 2)
     }
 
     @Test func cancelledQueuedRecordingDoesNotWrite() async throws {
-        let repository = SuspendedHabitRepository()
-        let manager = HabitsManager(repository: repository, currentDate: TestAppModelFactory.currentDate)
-        try await manager.selectTemplates([HabitTemplate.coffee.id])
-        await repository.pauseNextSave()
-        let first = Task { try await manager.recordCoffeeToday() }
-        await repository.waitForPausedSave()
-        let cancelled = Task { try await manager.recordCoffeeToday() }
+        let dataStore = SuspendedHabitDataStore()
+        let manager = HabitsManager(dataStore: dataStore, currentDate: TestAppModelFactory.currentDate)
+        try await manager.selectHabits([Habit(type: .coffee).id])
+        await dataStore.pauseNextSave()
+        let first = Task { try await manager.recordCoffee() }
+        await dataStore.waitForPausedSave()
+        let cancelled = Task { try await manager.recordCoffee() }
         cancelled.cancel()
-        await repository.releaseSave()
+        await dataStore.releaseSave()
         try await first.value
         do {
             try await cancelled.value
@@ -127,50 +127,50 @@ struct HabitsWorkerIntegrationTests {
     }
 
     @Test func changingDayRecalculatesSummariesWithoutLoadingStorage() async throws {
-        let repository = SuspendedHabitRepository()
+        let dataStore = SuspendedHabitDataStore()
         var date = Date(timeIntervalSince1970: 1_788_480_000)
-        let manager = HabitsManager(repository: repository, currentDate: { date })
-        try await manager.selectTemplates([HabitTemplate.coffee.id])
-        try await manager.recordCoffeeToday()
+        let manager = HabitsManager(dataStore: dataStore, currentDate: { date })
+        try await manager.selectHabits([Habit(type: .coffee).id])
+        try await manager.recordCoffee()
         date = date.addingTimeInterval(2 * 86_400)
         await manager.updateCurrentDay()
-        #expect(manager.todaysEntry(for: HabitTemplate.coffee.id) == nil)
-        #expect(manager.currentWeekSummary(for: HabitTemplate.coffee.id).currentStreak == 0)
-        #expect(await repository.loadCount == 0)
+        #expect(manager.todaysEntry(for: Habit(type: .coffee).id) == nil)
+        #expect(manager.currentWeekSummary(for: Habit(type: .coffee).id).currentStreak == 0)
+        #expect(await dataStore.loadCount == 0)
     }
 
     @Test func loadingPublishesPreparedSummaries() async throws {
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        let store = HabitStore(selectedHabitIDs: [HabitTemplate.coffee.id], entries: [
-            HabitEntry(id: UUID(), habitID: HabitTemplate.coffee.id, date: date, value: 3)
+        let data = HabitData(selectedHabitIDs: [Habit(type: .coffee).id], entries: [
+            HabitEntry(id: UUID(), habitType: .coffee, date: date, value: 3)
         ])
-        let manager = HabitsManager(repository: InMemoryHabitRepository(store: store), currentDate: { date })
+        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(data: data), currentDate: { date })
         await manager.load()
         #expect(manager.loadState == .ready)
-        #expect(manager.todaysEntry(for: HabitTemplate.coffee.id)?.value == 3)
-        #expect(manager.currentWeekSummary(for: HabitTemplate.coffee.id).totalValue == 3)
-        #expect(manager.lifetimeSummary(for: HabitTemplate.coffee.id).totalValue == 3)
+        #expect(manager.todaysEntry(for: Habit(type: .coffee).id)?.value == 3)
+        #expect(manager.currentWeekSummary(for: Habit(type: .coffee).id).totalValue == 3)
+        #expect(manager.lifetimeSummary(for: Habit(type: .coffee).id).totalValue == 3)
     }
 
     @Test func successfulSaveStillPublishesWhenCancellationArrivesDuringPersistence() async throws {
-        let repository = SuspendedHabitRepository()
-        let manager = HabitsManager(repository: repository, currentDate: TestAppModelFactory.currentDate)
-        try await manager.selectTemplates([HabitTemplate.coffee.id])
-        await repository.pauseNextSave()
-        let recording = Task { try await manager.recordCoffeeToday() }
-        await repository.waitForPausedSave()
+        let dataStore = SuspendedHabitDataStore()
+        let manager = HabitsManager(dataStore: dataStore, currentDate: TestAppModelFactory.currentDate)
+        try await manager.selectHabits([Habit(type: .coffee).id])
+        await dataStore.pauseNextSave()
+        let recording = Task { try await manager.recordCoffee() }
+        await dataStore.waitForPausedSave()
         recording.cancel()
-        await repository.releaseSave()
+        await dataStore.releaseSave()
         try await recording.value
         #expect(manager.entries.first?.value == 1)
-        let saved = try await repository.load()
+        let saved = try await dataStore.load()
         #expect(saved.entries == manager.entries)
     }
 
     @Test func swiftUIObservationTracksSharedFeatureState() async throws {
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        let manager = HabitsManager(repository: InMemoryHabitRepository(), currentDate: { date })
-        try await manager.selectTemplates([HabitTemplate.coffee.id])
+        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: { date })
+        try await manager.selectHabits([Habit(type: .coffee).id])
         let viewModel = CoffeeTrackingViewModel(habitsFeature: manager)
         let changed = OSAllocatedUnfairLock(initialState: false)
         withObservationTracking {
@@ -178,15 +178,31 @@ struct HabitsWorkerIntegrationTests {
         } onChange: {
             changed.withLock { $0 = true }
         }
-        try await manager.recordCoffeeToday()
+        let history = HabitHistoryViewModel(habitsFeature: manager)
+        let historyChanged = OSAllocatedUnfairLock(initialState: false)
+        withObservationTracking {
+            _ = history.entries
+        } onChange: {
+            historyChanged.withLock { $0 = true }
+        }
+        let selectionChanged = OSAllocatedUnfairLock(initialState: false)
+        withObservationTracking {
+            _ = manager.enabledHabits
+        } onChange: {
+            selectionChanged.withLock { $0 = true }
+        }
+        try await manager.recordCoffee()
+        #expect(historyChanged.withLock { $0 })
+        #expect(selectionChanged.withLock { $0 })
+        #expect(history.entries.count == 1)
         #expect(changed.withLock { $0 })
         #expect(viewModel.weekSummary.currentStreak == 1)
         #expect(viewModel.weeklyTotal == 1)
     }
 }
 
-private actor SuspendedHabitRepository: HabitRepository {
-    private var store = HabitStore(selectedHabitIDs: [], entries: [])
+private actor SuspendedHabitDataStore: HabitDataStore {
+    private var data = HabitData(selectedHabitIDs: [], entries: [])
     private var pauseLoad = false
     private var loadRelease: CheckedContinuation<Void, Never>?
     private var loadStarted: CheckedContinuation<Void, Never>?
@@ -197,7 +213,7 @@ private actor SuspendedHabitRepository: HabitRepository {
     private var failSave = false
     private(set) var loadCount = 0
 
-    func load() async throws -> HabitStore {
+    func load() async throws -> HabitData {
         loadCount += 1
         if pauseLoad {
             pauseLoad = false
@@ -211,10 +227,10 @@ private actor SuspendedHabitRepository: HabitRepository {
                 throw CocoaError(.fileReadUnknown)
             }
         }
-        return store
+        return data
     }
 
-    func save(_ store: HabitStore) async throws {
+    func save(_ data: HabitData, replacing previous: HabitData) async throws -> HabitData {
         if pauseSave {
             pauseSave = false
             await withCheckedContinuation { continuation in
@@ -227,7 +243,8 @@ private actor SuspendedHabitRepository: HabitRepository {
                 throw CocoaError(.fileWriteUnknown)
             }
         }
-        self.store = store
+        self.data = data
+        return data
     }
 
     func pauseNextLoad() { pauseLoad = true }

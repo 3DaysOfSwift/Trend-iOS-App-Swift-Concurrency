@@ -11,11 +11,11 @@ struct WakeTimeTrackingViewModelTests {
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let date = calendar.date(from: DateComponents(year: 2026, month: 9, day: 4, hour: 6, minute: 30))!
         let manager = HabitsManager(
-            repository: InMemoryHabitRepository(),
+            dataStore: InMemoryHabitDataStore(),
             calendar: calendar,
             currentDate: { date }
         )
-        try await manager.selectTemplates([HabitTemplate.wakeTime.id])
+        try await manager.selectHabits([Habit(type: .wakeTime).id])
         let viewModel = WakeTimeTrackingViewModel(
             habitsFeature: manager,
             calendar: calendar
