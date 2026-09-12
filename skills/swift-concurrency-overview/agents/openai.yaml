@@ -1,0 +1,4 @@
+interface:
+  display_name: "Swift Concurrency Overview"
+  short_description: "Visualise Swift tasks and their full journeys"
+  default_prompt: "Use $swift-concurrency-overview to map this repository's tasks and render a readable journey through one important workflow, including suspension, cancellation and ordering."

@@ -30,10 +30,10 @@ actor CloudKitHabitClient: HabitCloudClient {
                 remote = try decoder.decode(HabitData.self, from: payload)
             } else {
                 // A new cloud record must receive the complete local history.
-                remote = previous ?? HabitData(selectedHabitIDs: [], entries: [])
+                remote = previous ?? HabitData(enabledHabits: [], entries: [])
             }
             let merged = changes.apply(
-                from: previous ?? HabitData(selectedHabitIDs: [], entries: []),
+                from: previous ?? HabitData(enabledHabits: [], entries: []),
                 to: local, onto: remote)
             if record.recordChangeTag != nil, merged == remote { return merged }
             record["payload"] = try encoder.encode(merged) as CKRecordValue

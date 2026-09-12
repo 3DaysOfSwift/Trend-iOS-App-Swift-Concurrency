@@ -31,7 +31,7 @@ final class HabitLibraryViewModel {
         isSaving = true
         defer { isSaving = false }
         do {
-            try await habitsFeature.selectHabits(selection)
+            try await habitsFeature.enableSelectedHabits(selection)
             return true
         } catch {
             errorMessage = error.localizedDescription

@@ -2,11 +2,6 @@
 
 import Foundation
 
-struct HabitData: Codable, Equatable, Sendable {
-    var selectedHabitIDs: Set<String>
-    var entries: [HabitEntry]
-}
-
 struct HabitEntry: Codable, Identifiable, Equatable, Sendable {
     let id: UUID
     let habitType: Habit.HabitType

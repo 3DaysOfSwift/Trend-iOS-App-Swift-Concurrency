@@ -40,7 +40,7 @@ actor FileHabitDataStore: HabitDataStore {
 
     func readDocument() throws -> Document {
         guard FileManager.default.fileExists(atPath: fileURL.path()) else {
-            return Document(data: HabitData(selectedHabitIDs: [], entries: []))
+            return Document(data: HabitData(enabledHabits: [], entries: []))
         }
         let data = try Data(contentsOf: fileURL)
         return try decoder.decode(Document.self, from: data)

@@ -7,7 +7,6 @@ import Observation
 @Observable
 final class HabitsManager {
     private let worker: HabitsWorker
-    private let usesCloud: Bool
     private let calendar: Calendar
     private let currentDate: @MainActor () -> Date
     @ObservationIgnored private var synchronizationTask: Task<Void, Never>?
@@ -23,26 +22,27 @@ final class HabitsManager {
         case failed(String)
     }
     private(set) var loadState: HabitLoadState = .idle
-    private var data = HabitData(selectedHabitIDs: [], entries: [])
-
-    // Observation dependency: `data`
-    var enabledHabits: [Habit] { data.selectedHabitIDs.compactMap { Habit(id: $0) } }
     
-    // Observation dependency: `data`
-    var entries: [HabitEntry] { data.entries }
+    // the habit data loaded into memory - in memory cache
+    private var habitData = HabitData(enabledHabits: [], entries: [])
 
-    private(set) var weekSummaries: [String: HabitWeekSummary] = [:]
-    private(set) var lifetimeSummaries: [String: HabitLifetimeSummary] = [:]
-    private var todayEntries: [String: HabitEntry] = [:]
-    @ObservationIgnored private var summaryDate: Date?
-    private var entriesByDay: [String: [Date: HabitEntry]] = [:]
+    // Observation dependency: `habitData`
+    var enabledHabits: [Habit] { habitData.enabledHabits }
+    
+    // Observation dependency: `habitData`
+    var entries: [HabitEntry] { habitData.entries }
+
+    // Observation dependency: `habitData`
+    var weekSummaries: [String: HabitWeekSummary] { habitData.weekSummaries }
+    // Observation dependency: `habitData`
+    var lifetimeSummaries: [String: HabitLifetimeSummary] { habitData.lifetimeSummaries }
+
     private(set) var errorMessage: String?
     private(set) var synchronizationError: String?
 
-    init(dataStore: any HabitDataStore, calendar: Calendar = .current,
+    init(storage: any HabitCloudSynchronizing, calendar: Calendar = .current,
          currentDate: @escaping @MainActor () -> Date) {
-        usesCloud = dataStore is any HabitCloudSynchronizing
-        worker = HabitsWorker(dataStore: dataStore, calendar: calendar)
+        worker = HabitsWorker(storage: storage, calendar: calendar)
         self.calendar = calendar
         self.currentDate = currentDate
     }
@@ -64,18 +64,6 @@ final class HabitsManager {
         await task.value
     }
 
-    func synchronize() async {
-        await load()
-        guard loadState == .ready else { return }
-        if let synchronizationTask {
-            await synchronizationTask.value
-            return
-        }
-        if let synchronization = requestCloudSynchronization() {
-            await synchronization.value
-        }
-    }
-
     private func loadLocalData() async {
         await waitForPreviousOperation()
         defer { finishOperation() }
@@ -84,7 +72,7 @@ final class HabitsManager {
         do {
             let today = currentDate()
             let result = try await worker.load(on: today)
-            publishSuccessfulResult(result, on: today)
+            publishSuccessfulResult(result)
         } catch is CancellationError {
             loadState = previousState
         } catch {
@@ -92,10 +80,19 @@ final class HabitsManager {
             loadState = .failed(error.localizedDescription)
         }
     }
+    
+    func synchronize() async {
+        await load()
+        guard loadState == .ready else { return }
+        if let synchronizationTask {
+            await synchronizationTask.value
+            return
+        }
+        await requestCloudSynchronization().value
+    }
 
     @discardableResult
-    private func requestCloudSynchronization() -> Task<Void, Never>? {
-        guard usesCloud else { return nil }
+    private func requestCloudSynchronization() -> Task<Void, Never> {
         synchronizationRequested = true
         if let synchronizationTask { return synchronizationTask }
         let task = Task {
@@ -118,178 +115,43 @@ final class HabitsManager {
         return task
     }
 
-    @discardableResult
-    func selectHabits(_ habitIDs: Set<String>) async throws -> [Habit] {
-        await waitForPreviousOperation()
-        defer { finishOperation() }
-        try Task.checkCancellation()
-        let today = currentDate()
-        let result = try await worker.selectHabits(habitIDs, data: data, today: today)
-        publishSuccessfulResult(result, on: today)
-        requestCloudSynchronization()
-        return enabledHabits
-    }
-
-    // Observation dependency: `entriesByDay`
+    // Observation dependency: `habitData`
     func entry(for habitID: String, on date: Date) -> HabitEntry? {
-        entriesByDay[habitID]?[calendar.startOfDay(for: date)]
+        habitData.entriesByDay[habitID]?[calendar.startOfDay(for: date)]
     }
 
-    // Observation dependency: `todayEntries`
+    // Observation dependency: `habitData`
     func todaysEntry(for habitID: String) -> HabitEntry? {
-        todayEntries[habitID]
+        habitData.todayEntries[habitID]
     }
 
     func weekSummary(for habitID: String, on date: Date) async -> HabitWeekSummary {
-        await worker.weekSummary(entriesByDay: entriesByDay[habitID] ?? [:], on: date)
+        await worker.weekSummary(entriesByDay: habitData.entriesByDay[habitID] ?? [:], on: date)
     }
 
-    // Observation dependency: `weekSummaries`
+    // Observation dependency: `habitData`
     func currentWeekSummary(for habitID: String) -> HabitWeekSummary {
         weekSummaries[habitID] ?? HabitWeekSummary(currentStreak: 0, days: [])
     }
 
-    // Observation dependency: `lifetimeSummaries`
+    // Observation dependency: `habitData`
     func lifetimeSummary(for habitID: String) -> HabitLifetimeSummary {
         lifetimeSummaries[habitID] ?? HabitLifetimeSummary(totalValue: 0, firstEntryDate: nil)
-    }
-
-    @discardableResult
-    func recordCoffee(on date: Date? = nil) async throws -> HabitEntry {
-        let date = date ?? currentDate()
-        await waitForPreviousOperation()
-        defer { finishOperation() }
-        try Task.checkCancellation()
-        let today = currentDate()
-        let result = try await worker.recordCoffee(on: date, data: data, today: today)
-        publishSuccessfulResult(result.update, on: today)
-        requestCloudSynchronization()
-        return result.entry
-    }
-
-    @discardableResult
-    func recordGymRepetitions(_ repetitions: Int, on date: Date? = nil) async throws -> HabitEntry {
-        let date = date ?? currentDate()
-        await waitForPreviousOperation()
-        defer { finishOperation() }
-        try Task.checkCancellation()
-        let today = currentDate()
-        let result = try await worker.recordGymRepetitions(repetitions, on: date, data: data, today: today)
-        publishSuccessfulResult(result.update, on: today)
-        requestCloudSynchronization()
-        return result.entry
-    }
-
-    @discardableResult
-    func recordRun(kilometres: Double, on date: Date? = nil) async throws -> HabitEntry {
-        let date = date ?? currentDate()
-        await waitForPreviousOperation()
-        defer { finishOperation() }
-        try Task.checkCancellation()
-        let today = currentDate()
-        let result = try await worker.recordRun(kilometres: kilometres, on: date, data: data, today: today)
-        publishSuccessfulResult(result.update, on: today)
-        requestCloudSynchronization()
-        return result.entry
-    }
-
-    @discardableResult
-    func recordSleep(hours: Double, on date: Date? = nil) async throws -> HabitEntry {
-        let date = date ?? currentDate()
-        await waitForPreviousOperation()
-        defer { finishOperation() }
-        try Task.checkCancellation()
-        let today = currentDate()
-        let result = try await worker.recordSleep(hours: hours, on: date, data: data, today: today)
-        publishSuccessfulResult(result.update, on: today)
-        requestCloudSynchronization()
-        return result.entry
-    }
-
-    @discardableResult
-    func recordWakeTime(minutesAfterMidnight: Int, on date: Date? = nil) async throws -> HabitEntry {
-        let date = date ?? currentDate()
-        await waitForPreviousOperation()
-        defer { finishOperation() }
-        try Task.checkCancellation()
-        let today = currentDate()
-        let result = try await worker.recordWakeTime(minutesAfterMidnight: minutesAfterMidnight, on: date, data: data, today: today)
-        publishSuccessfulResult(result.update, on: today)
-        requestCloudSynchronization()
-        return result.entry
-    }
-
-    @discardableResult
-    func recordGlassOfWater(on date: Date? = nil) async throws -> HabitEntry {
-        let date = date ?? currentDate()
-        await waitForPreviousOperation()
-        defer { finishOperation() }
-        try Task.checkCancellation()
-        let today = currentDate()
-        let result = try await worker.recordGlassOfWater(on: date, data: data, today: today)
-        publishSuccessfulResult(result.update, on: today)
-        requestCloudSynchronization()
-        return result.entry
-    }
-
-    @discardableResult
-    func recordAlcoholicDrink(on date: Date? = nil) async throws -> HabitEntry {
-        let date = date ?? currentDate()
-        await waitForPreviousOperation()
-        defer { finishOperation() }
-        try Task.checkCancellation()
-        let today = currentDate()
-        let result = try await worker.recordAlcoholicDrink(on: date, data: data, today: today)
-        publishSuccessfulResult(result.update, on: today)
-        requestCloudSynchronization()
-        return result.entry
-    }
-
-    @discardableResult
-    func removeCoffee(on date: Date? = nil) async throws -> HabitEntry? {
-        let date = date ?? currentDate()
-        await waitForPreviousOperation()
-        defer { finishOperation() }
-        try Task.checkCancellation()
-        let today = currentDate()
-        let result = try await worker.removeCoffee(on: date, data: data, today: today)
-        publishSuccessfulResult(result.update, on: today)
-        requestCloudSynchronization()
-        return result.entry
-    }
-
-    func clearGymRepetitions(on date: Date? = nil) async throws {
-        let date = date ?? currentDate()
-        await waitForPreviousOperation()
-        defer { finishOperation() }
-        try Task.checkCancellation()
-        let today = currentDate()
-        let result = try await worker.clearGymRepetitions(on: date, data: data, today: today)
-        publishSuccessfulResult(result, on: today)
-        requestCloudSynchronization()
     }
 
     // Called on foreground entry and calendar-day changes; no disk reload is needed.
     func updateCurrentDay() async {
         await waitForPreviousOperation()
         defer { finishOperation() }
-        guard !Task.isCancelled, summaryDate != nil else { return }
-        let date = currentDate()
-        guard summaryDate != calendar.startOfDay(for: date) else { return }
-        let result = await worker.calculateSummaries(data, on: date)
-        todayEntries = result.todayEntries
-        weekSummaries = result.weekSummaries
-        summaryDate = calendar.startOfDay(for: date)
+        guard !Task.isCancelled, habitData.summaryDate != nil else { return }
+        
+        let today = currentDate()
+        guard habitData.summaryDate != calendar.startOfDay(for: today) else { return }
+        habitData = await worker.calculateSummaries(habitData, on: today)
     }
 
-    private func publishSuccessfulResult(_ result: HabitsWorker.Update, on date: Date) {
-        // Publish the completed operation together, with no suspension between assignments.
-        data = result.data
-        entriesByDay = result.entriesByDay
-        todayEntries = result.todayEntries
-        summaryDate = calendar.startOfDay(for: date)
-        weekSummaries = result.weekSummaries
-        lifetimeSummaries = result.lifetimeSummaries
+    private func publishSuccessfulResult(_ result: HabitData) {
+        habitData = result
         errorMessage = nil
         loadState = .ready
     }
@@ -312,14 +174,143 @@ final class HabitsManager {
     }
 }
 
+// MARK: - Habit updates
+
+extension HabitsManager {
+    @discardableResult
+    func enableSelectedHabits(_ habitIDs: Set<String>) async throws -> [Habit] {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        
+        let result = try await worker.selectHabits(habitIDs, habitData: habitData, today: currentDate())
+        publishSuccessfulResult(result)
+        requestCloudSynchronization()
+        return enabledHabits
+    }
+
+    @discardableResult
+    func recordCoffee(on date: Date? = nil) async throws -> HabitEntry {
+        let date = date ?? currentDate()
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        
+        let result = try await worker.recordCoffee(on: date, habitData: habitData, today: currentDate())
+        publishSuccessfulResult(result.habitData)
+        requestCloudSynchronization()
+        return result.entry
+    }
+
+    @discardableResult
+    func recordGymRepetitions(_ repetitions: Int, on date: Date? = nil) async throws -> HabitEntry {
+        let date = date ?? currentDate()
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        
+        let result = try await worker.recordGymRepetitions(repetitions, on: date, habitData: habitData, today: currentDate())
+        publishSuccessfulResult(result.habitData)
+        requestCloudSynchronization()
+        return result.entry
+    }
+
+    @discardableResult
+    func recordRun(kilometres: Double, on date: Date? = nil) async throws -> HabitEntry {
+        let date = date ?? currentDate()
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        
+        let result = try await worker.recordRun(kilometres: kilometres, on: date, habitData: habitData, today: currentDate())
+        publishSuccessfulResult(result.habitData)
+        requestCloudSynchronization()
+        return result.entry
+    }
+
+    @discardableResult
+    func recordSleep(hours: Double, on date: Date? = nil) async throws -> HabitEntry {
+        let date = date ?? currentDate()
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        
+        let result = try await worker.recordSleep(hours: hours, on: date, habitData: habitData, today: currentDate())
+        publishSuccessfulResult(result.habitData)
+        requestCloudSynchronization()
+        return result.entry
+    }
+
+    @discardableResult
+    func recordWakeTime(minutesAfterMidnight: Int, on date: Date? = nil) async throws -> HabitEntry {
+        let date = date ?? currentDate()
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        
+        let result = try await worker.recordWakeTime(minutesAfterMidnight: minutesAfterMidnight, on: date, habitData: habitData, today: currentDate())
+        publishSuccessfulResult(result.habitData)
+        requestCloudSynchronization()
+        return result.entry
+    }
+
+    @discardableResult
+    func recordGlassOfWater(on date: Date? = nil) async throws -> HabitEntry {
+        let date = date ?? currentDate()
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        
+        let result = try await worker.recordGlassOfWater(on: date, habitData: habitData, today: currentDate())
+        publishSuccessfulResult(result.habitData)
+        requestCloudSynchronization()
+        return result.entry
+    }
+
+    @discardableResult
+    func recordAlcoholicDrink(on date: Date? = nil) async throws -> HabitEntry {
+        let date = date ?? currentDate()
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        
+        let result = try await worker.recordAlcoholicDrink(on: date, habitData: habitData, today: currentDate())
+        publishSuccessfulResult(result.habitData)
+        requestCloudSynchronization()
+        return result.entry
+    }
+
+    @discardableResult
+    func removeCoffee(on date: Date? = nil) async throws -> HabitEntry? {
+        let date = date ?? currentDate()
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        
+        let result = try await worker.removeCoffee(on: date, habitData: habitData, today: currentDate())
+        publishSuccessfulResult(result.habitData)
+        requestCloudSynchronization()
+        return result.entry
+    }
+
+    func clearGymRepetitions(on date: Date? = nil) async throws {
+        let date = date ?? currentDate()
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        
+        let result = try await worker.clearGymRepetitions(on: date, habitData: habitData, today: currentDate())
+        publishSuccessfulResult(result)
+        requestCloudSynchronization()
+    }
+}
+
 enum HabitError: LocalizedError {
     case invalidValue
-    case unsupportedOperation
 
     var errorDescription: String? {
         switch self {
         case .invalidValue: "Enter a valid value before saving."
-        case .unsupportedOperation: "This tracker does not support that action."
         }
     }
 }

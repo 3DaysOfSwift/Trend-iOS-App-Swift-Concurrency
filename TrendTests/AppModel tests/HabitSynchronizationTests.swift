@@ -8,6 +8,22 @@ import Testing
 struct HabitSynchronizationTests {
     private let date = Date(timeIntervalSince1970: 1_788_480_000)
 
+    @Test func savedHabitsContainOnlyIDsAndDecodeIntoHabits() throws {
+        let original = HabitData(enabledHabits: [Habit(type: .coffee), Habit(type: .runningDistance)], entries: [])
+        var calculated = original
+        calculated.summaryDate = date
+        calculated.weekSummaries = ["coffee": HabitWeekSummary(currentStreak: 2, days: [])]
+        calculated.lifetimeSummaries = ["coffee": HabitLifetimeSummary(totalValue: 3, firstEntryDate: date)]
+        let coffee = entry(.coffee, value: 3)
+        calculated.todayEntries = ["coffee": coffee]
+        calculated.entriesByDay = ["coffee": [date: coffee]]
+        let encoded = try JSONEncoder().encode(calculated)
+        let json = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        #expect(json["enabledHabitIDs"] as? [String] == ["coffee", "runningDistance"])
+        #expect(Set(json.keys) == ["enabledHabitIDs", "entries"])
+        #expect(try JSONDecoder().decode(HabitData.self, from: encoded) == original)
+    }
+
     @Test func loadingSavedHabitsDoesNotContactCloudOrReloadReadyData() async throws {
         let file = temporaryFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
@@ -15,7 +31,7 @@ struct HabitSynchronizationTests {
         let cache = FileHabitDataStore(fileURL: file)
         try await cache.seed(data([coffee]))
         let cloud = PausedHabitCloud(data: data([]))
-        let manager = HabitsManager(dataStore: CloudKitHabitDataStore(cache: cache, cloud: cloud), currentDate: { date })
+        let manager = HabitsManager(storage: CloudKitHabitDataStore(cache: cache, cloud: cloud), currentDate: { date })
         await manager.load()
         #expect(manager.entries == [coffee])
         #expect(await cloud.requestCount == 0)
@@ -30,7 +46,7 @@ struct HabitSynchronizationTests {
         let file = temporaryFile()
         defer { try? FileManager.default.removeItem(at: file.deletingLastPathComponent()) }
         let cloud = PausedHabitCloud(data: data([]))
-        let manager = HabitsManager(dataStore: CloudKitHabitDataStore(
+        let manager = HabitsManager(storage: CloudKitHabitDataStore(
             cache: FileHabitDataStore(fileURL: file), cloud: cloud), currentDate: { date })
         await manager.load()
         await cloud.pauseNextRequest()
@@ -60,7 +76,7 @@ struct HabitSynchronizationTests {
         let cloud = PausedHabitCloud(data: data([water]))
         await cloud.pauseNextRequest()
         let dataStore = CloudKitHabitDataStore(cache: cache, cloud: cloud)
-        let manager = HabitsManager(dataStore: dataStore, currentDate: { date })
+        let manager = HabitsManager(storage: dataStore, currentDate: { date })
         let refresh = Task { await manager.synchronize() }
         await cloud.waitForPausedRequest()
         #expect(manager.loadState == .ready)
@@ -86,7 +102,7 @@ struct HabitSynchronizationTests {
         try await cache.seed(data([]))
         let cloud = PausedHabitCloud(data: data([]))
         await cloud.setFailure(true)
-        let manager = HabitsManager(dataStore: CloudKitHabitDataStore(cache: cache, cloud: cloud), currentDate: { date })
+        let manager = HabitsManager(storage: CloudKitHabitDataStore(cache: cache, cloud: cloud), currentDate: { date })
         await manager.synchronize()
         let coffee = try await manager.recordCoffee()
         #expect(manager.loadState == .ready)
@@ -178,11 +194,11 @@ struct HabitSynchronizationTests {
 
     @Test func independentHabitSelectionsAreMerged() async throws {
         let merge = HabitDataChanges(calendar: .current)
-        let before = HabitData(selectedHabitIDs: [Habit(type: .coffee).id], entries: [])
-        let local = HabitData(selectedHabitIDs: [Habit(type: .water).id], entries: [])
-        let remote = HabitData(selectedHabitIDs: [Habit(type: .coffee).id, Habit(type: .sleep).id], entries: [])
+        let before = HabitData(enabledHabits: [Habit(type: .coffee)], entries: [])
+        let local = HabitData(enabledHabits: [Habit(type: .water)], entries: [])
+        let remote = HabitData(enabledHabits: [Habit(type: .coffee), Habit(type: .sleep)], entries: [])
         let result = merge.apply(from: before, to: local, onto: remote)
-        #expect(result.selectedHabitIDs == [Habit(type: .water).id, Habit(type: .sleep).id])
+        #expect(Set(result.enabledHabits.map(\.id)) == [Habit(type: .water).id, Habit(type: .sleep).id])
     }
 
     @Test func failingLocalWriteDoesNotPublishAnUnsavedEntry() async throws {
@@ -192,7 +208,7 @@ struct HabitSynchronizationTests {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let cache = FileHabitDataStore(fileURL: file)
         try await cache.seed(data([]))
-        let manager = HabitsManager(dataStore: cache, currentDate: { date })
+        let manager = HabitsManager(storage: CloudKitHabitDataStore(cache: cache, cloud: PausedHabitCloud(data: data([]))), currentDate: { date })
         await manager.load()
         // Replace the destination with a directory, so a file write must fail.
         try FileManager.default.removeItem(at: file)
@@ -214,7 +230,7 @@ struct HabitSynchronizationTests {
     }
 
     private func data(_ entries: [HabitEntry]) -> HabitData {
-        HabitData(selectedHabitIDs: [Habit(type: .coffee).id, Habit(type: .water).id], entries: entries)
+        HabitData(enabledHabits: [Habit(type: .coffee), Habit(type: .water)], entries: entries)
     }
 }
 
@@ -240,7 +256,7 @@ private actor PausedHabitCloud: HabitCloudClient {
         }
         if shouldFail { throw CocoaError(.fileReadUnknown) }
         currentStore = HabitDataChanges(calendar: .current).apply(
-            from: previous ?? HabitData(selectedHabitIDs: [], entries: []), to: local, onto: currentStore)
+            from: previous ?? HabitData(enabledHabits: [], entries: []), to: local, onto: currentStore)
         return currentStore
     }
 

@@ -8,8 +8,8 @@ import Testing
 struct AlcoholTrackingViewModelTests {
     @Test func recordingDrinksIncrementsTodaysCount() async throws {
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: { date })
-        try await manager.selectHabits([Habit(type: .alcohol).id])
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: { date })
+        try await manager.enableSelectedHabits([Habit(type: .alcohol).id])
         let viewModel = AlcoholTrackingViewModel(habitsFeature: manager)
 
         #expect(await viewModel.recordDrink())

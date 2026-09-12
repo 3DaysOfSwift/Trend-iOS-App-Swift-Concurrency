@@ -53,7 +53,7 @@ final class AppModel {
         let habitDataStore = CloudKitHabitDataStore(
             cache: FileHabitDataStore(), cloud: CloudKitHabitClient())
         let habits = HabitsManager(
-            dataStore: habitDataStore,
+            storage: habitDataStore,
             currentDate: currentDate
         )
         let purchases = PurchaseManager(client: StoreKitPurchaseClient())

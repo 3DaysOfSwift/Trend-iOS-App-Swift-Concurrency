@@ -3,125 +3,115 @@
 import Foundation
 
 actor HabitsWorker {
-    struct Update: Sendable {
-        let data: HabitData
-        let todayEntries: [String: HabitEntry]
-        let entriesByDay: [String: [Date: HabitEntry]]
-        let weekSummaries: [String: HabitWeekSummary]
-        let lifetimeSummaries: [String: HabitLifetimeSummary]
-    }
-
-    private let dataStore: any HabitDataStore
+    private let storage: any HabitCloudSynchronizing
     private let calendar: Calendar
 
-    init(dataStore: any HabitDataStore, calendar: Calendar) {
-        self.dataStore = dataStore
+    init(storage: any HabitCloudSynchronizing, calendar: Calendar) {
+        self.storage = storage
         self.calendar = calendar
     }
 
-    // The manager supplies its current data after the previous operation has completed.
-    // The worker keeps no second mutable feature data.
-    func load(on today: Date) async throws -> Update {
-        let data = try await dataStore.load()
-        return calculateSummaries(data, on: today)
+    // The manager supplies its current habits and entries after the previous operation has completed.
+    // The worker does not retain a second copy.
+    func load(on today: Date) async throws -> HabitData {
+        let habitData = try await storage.load()
+        return calculateSummaries(habitData, on: today)
     }
 
     func synchronize() async throws {
-        if let cloud = dataStore as? any HabitCloudSynchronizing {
-            try await cloud.synchronize()
-        }
+        try await storage.synchronize()
     }
 
-    func selectHabits(_ ids: Set<String>, data: HabitData, today: Date) async throws -> Update {
-        var updated = data
-        updated.selectedHabitIDs = ids
-        let saved = try await dataStore.save(updated, replacing: data)
+    func selectHabits(_ ids: Set<String>, habitData: HabitData, today: Date) async throws -> HabitData {
+        var updated = habitData
+        updated.enabledHabits = ids.compactMap { Habit(id: $0) }
+        let saved = try await storage.save(updated, replacing: habitData)
         return calculateSummaries(saved, on: today)
     }
 
-    func recordCoffee(on date: Date, data: HabitData, today: Date) async throws -> (entry: HabitEntry, update: Update) {
-        let value = (entry(in: data.entries, for: .coffee, on: date)?.value ?? 0) + 1
+    func recordCoffee(on date: Date, habitData: HabitData, today: Date) async throws -> (entry: HabitEntry, habitData: HabitData) {
+        let value = (entry(in: habitData.entries, for: .coffee, on: date)?.value ?? 0) + 1
         return try await saveEntry(value, for: .coffee, on: date,
-            data: data, today: today)
+            habitData: habitData, today: today)
     }
 
-    func recordGymRepetitions(_ repetitions: Int, on date: Date, data: HabitData, today: Date) async throws -> (entry: HabitEntry, update: Update) {
-        let value = (entry(in: data.entries, for: .gymRepetitions, on: date)?.value ?? 0) + Double(repetitions)
+    func recordGymRepetitions(_ repetitions: Int, on date: Date, habitData: HabitData, today: Date) async throws -> (entry: HabitEntry, habitData: HabitData) {
+        let value = (entry(in: habitData.entries, for: .gymRepetitions, on: date)?.value ?? 0) + Double(repetitions)
         return try await saveEntry(value, for: .gymRepetitions, on: date,
-            data: data, today: today)
+            habitData: habitData, today: today)
     }
 
-    func recordRun(kilometres: Double, on date: Date, data: HabitData, today: Date) async throws -> (entry: HabitEntry, update: Update) {
+    func recordRun(kilometres: Double, on date: Date, habitData: HabitData, today: Date) async throws -> (entry: HabitEntry, habitData: HabitData) {
         return try await saveEntry(kilometres, for: .runningDistance, on: date,
-            data: data, today: today, occurrence: true)
+            habitData: habitData, today: today, occurrence: true)
     }
 
-    func recordSleep(hours: Double, on date: Date, data: HabitData, today: Date) async throws -> (entry: HabitEntry, update: Update) {
+    func recordSleep(hours: Double, on date: Date, habitData: HabitData, today: Date) async throws -> (entry: HabitEntry, habitData: HabitData) {
         return try await saveEntry(hours, for: .sleep, on: date,
-            data: data, today: today)
+            habitData: habitData, today: today)
     }
 
-    func recordWakeTime(minutesAfterMidnight: Int, on date: Date, data: HabitData, today: Date) async throws -> (entry: HabitEntry, update: Update) {
+    func recordWakeTime(minutesAfterMidnight: Int, on date: Date, habitData: HabitData, today: Date) async throws -> (entry: HabitEntry, habitData: HabitData) {
         return try await saveEntry(Double(minutesAfterMidnight), for: .wakeTime, on: date,
-            data: data, today: today)
+            habitData: habitData, today: today)
     }
 
-    func recordGlassOfWater(on date: Date, data: HabitData, today: Date) async throws -> (entry: HabitEntry, update: Update) {
-        let value = (entry(in: data.entries, for: .water, on: date)?.value ?? 0) + 1
+    func recordGlassOfWater(on date: Date, habitData: HabitData, today: Date) async throws -> (entry: HabitEntry, habitData: HabitData) {
+        let value = (entry(in: habitData.entries, for: .water, on: date)?.value ?? 0) + 1
         return try await saveEntry(value, for: .water, on: date,
-            data: data, today: today)
+            habitData: habitData, today: today)
     }
 
-    func recordAlcoholicDrink(on date: Date, data: HabitData, today: Date) async throws -> (entry: HabitEntry, update: Update) {
-        let value = (entry(in: data.entries, for: .alcohol, on: date)?.value ?? 0) + 1
+    func recordAlcoholicDrink(on date: Date, habitData: HabitData, today: Date) async throws -> (entry: HabitEntry, habitData: HabitData) {
+        let value = (entry(in: habitData.entries, for: .alcohol, on: date)?.value ?? 0) + 1
         return try await saveEntry(value, for: .alcohol, on: date,
-            data: data, today: today)
+            habitData: habitData, today: today)
     }
 
-    func removeCoffee(on date: Date, data: HabitData, today: Date) async throws -> (entry: HabitEntry?, update: Update) {
+    func removeCoffee(on date: Date, habitData: HabitData, today: Date) async throws -> (entry: HabitEntry?, habitData: HabitData) {
         let type = Habit.HabitType.coffee
-        guard let existing = entry(in: data.entries, for: type, on: date) else {
-            return (nil, calculateSummaries(data, on: today))
+        guard let existing = entry(in: habitData.entries, for: type, on: date) else {
+            return (nil, calculateSummaries(habitData, on: today))
         }
         if existing.value > 1 {
             let result = try await saveEntry(existing.value - 1, for: type, on: date,
-                data: data, today: today)
-            return (result.entry, result.update)
+                habitData: habitData, today: today)
+            return (result.entry, result.habitData)
         }
-        var updated = data
+        var updated = habitData
         updated.entries.removeAll { $0.id == existing.id }
-        let saved = try await dataStore.save(updated, replacing: data)
+        let saved = try await storage.save(updated, replacing: habitData)
         return (nil, calculateSummaries(saved, on: today))
     }
 
-    func clearGymRepetitions(on date: Date, data: HabitData, today: Date) async throws -> Update {
-        var updated = data
+    func clearGymRepetitions(on date: Date, habitData: HabitData, today: Date) async throws -> HabitData {
+        var updated = habitData
         updated.entries.removeAll {
             $0.habitType == .gymRepetitions && calendar.isDate($0.date, inSameDayAs: date)
         }
-        let saved = try await dataStore.save(updated, replacing: data)
+        let saved = try await storage.save(updated, replacing: habitData)
         return calculateSummaries(saved, on: today)
     }
 
     private func saveEntry(_ value: Double, for type: Habit.HabitType, on date: Date,
-                           data: HabitData, today: Date, occurrence: Bool = false) async throws -> (entry: HabitEntry, update: Update) {
+                           habitData: HabitData, today: Date, occurrence: Bool = false) async throws -> (entry: HabitEntry, habitData: HabitData) {
         let habit = Habit(type: type)
-        guard data.selectedHabitIDs.contains(habit.id),
+        guard habitData.enabledHabits.contains(where: { $0.type == type }),
               habit.recordingPolicy.accumulatesOccurrences == occurrence,
               habit.recordingPolicy.accepts(value) else {
             throw HabitError.invalidValue
         }
-        let existing = entry(in: data.entries, for: type, on: date)
+        let existing = entry(in: habitData.entries, for: type, on: date)
         let recordedEntry = HabitEntry(
             id: UUID(), habitType: type, date: date,
             value: occurrence ? (existing?.value ?? 0) + value : value,
             occurrenceCount: occurrence ? (existing?.occurrenceCount ?? 0) + 1 : existing?.occurrenceCount
         )
-        var updated = data
+        var updated = habitData
         updated.entries.removeAll { $0.habitType == type && calendar.isDate($0.date, inSameDayAs: date) }
         updated.entries.append(recordedEntry)
         updated.entries.sort { $0.date > $1.date }
-        let saved = try await dataStore.save(updated, replacing: data)
+        let saved = try await storage.save(updated, replacing: habitData)
         return (recordedEntry, calculateSummaries(saved, on: today))
     }
 
@@ -129,10 +119,10 @@ actor HabitsWorker {
         entries.first { $0.habitType == type && calendar.isDate($0.date, inSameDayAs: date) }
     }
 
-    func calculateSummaries(_ data: HabitData, on today: Date) -> Update {
+    func calculateSummaries(_ habitData: HabitData, on today: Date) -> HabitData {
         var entriesByDay: [String: [Date: HabitEntry]] = [:]
         var lifetimeSummaries: [String: HabitLifetimeSummary] = [:]
-        let grouped = Dictionary(grouping: data.entries, by: \.habitType)
+        let grouped = Dictionary(grouping: habitData.entries, by: \.habitType)
         var weeks: [String: HabitWeekSummary] = [:]
         for habit in Habit.allHabits {
             let entries = grouped[habit.type] ?? []
@@ -147,12 +137,13 @@ actor HabitsWorker {
                 firstEntryDate: entries.map(\.date).min()
             )
         }
-        return Update(
-            data: data,
-            todayEntries: entriesByDay.compactMapValues { $0[calendar.startOfDay(for: today)] },
-            entriesByDay: entriesByDay,
-            weekSummaries: weeks, lifetimeSummaries: lifetimeSummaries
-        )
+        var calculated = habitData
+        calculated.todayEntries = entriesByDay.compactMapValues { $0[calendar.startOfDay(for: today)] }
+        calculated.entriesByDay = entriesByDay
+        calculated.weekSummaries = weeks
+        calculated.lifetimeSummaries = lifetimeSummaries
+        calculated.summaryDate = calendar.startOfDay(for: today)
+        return calculated
     }
 
     func weekSummary(entriesByDay: [Date: HabitEntry], on date: Date) -> HabitWeekSummary {

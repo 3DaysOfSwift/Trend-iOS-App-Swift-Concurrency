@@ -7,17 +7,17 @@ import Testing
 @MainActor
 struct HabitsManagerTests {
     @Test func selectionDefinesTheActiveHabitList() async throws {
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
 
-        try await manager.selectHabits([Habit(type: .coffee).id, Habit(type: .water).id])
+        try await manager.enableSelectedHabits([Habit(type: .coffee).id, Habit(type: .water).id])
 
         #expect(Set(manager.enabledHabits.map(\.id)) == Set([Habit(type: .coffee).id, Habit(type: .water).id]))
     }
 
     @Test func twoCoffeesOnTheSameDayAccumulate() async throws {
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        try await manager.selectHabits([Habit(type: .coffee).id])
+        try await manager.enableSelectedHabits([Habit(type: .coffee).id])
 
         try await manager.recordCoffee(on: date)
         try await manager.recordCoffee(on: date)
@@ -27,21 +27,21 @@ struct HabitsManagerTests {
     }
 
     @Test func removingAndReselectingAHabitPreservesItsHistory() async throws {
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        try await manager.selectHabits([Habit(type: .water).id])
+        try await manager.enableSelectedHabits([Habit(type: .water).id])
         for _ in 0..<6 { try await manager.recordGlassOfWater(on: date) }
 
-        try await manager.selectHabits([])
-        try await manager.selectHabits([Habit(type: .water).id])
+        try await manager.enableSelectedHabits([])
+        try await manager.enableSelectedHabits([Habit(type: .water).id])
 
         #expect(manager.entry(for: Habit(type: .water).id, on: date)?.value == 6)
     }
 
     @Test func separateRunsAccumulateDistanceAndOccurrenceCount() async throws {
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        try await manager.selectHabits([Habit(type: .runningDistance).id])
+        try await manager.enableSelectedHabits([Habit(type: .runningDistance).id])
 
         try await manager.recordRun(kilometres: 3, on: date)
         try await manager.recordRun(kilometres: 2, on: date)
@@ -52,9 +52,9 @@ struct HabitsManagerTests {
     }
 
     @Test func clearingTodayRemovesTheHabitEntry() async throws {
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        try await manager.selectHabits([Habit(type: .gymRepetitions).id])
+        try await manager.enableSelectedHabits([Habit(type: .gymRepetitions).id])
         try await manager.recordGymRepetitions(20, on: date)
 
         try await manager.clearGymRepetitions(on: date)
@@ -70,9 +70,9 @@ struct HabitsManagerTests {
     }
 
     @Test func removingOneDecrementsThenRemovesTheDailyEntry() async throws {
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        try await manager.selectHabits([Habit(type: .coffee).id])
+        try await manager.enableSelectedHabits([Habit(type: .coffee).id])
         try await manager.recordCoffee(on: date)
         try await manager.recordCoffee(on: date)
 
@@ -86,10 +86,10 @@ struct HabitsManagerTests {
     }
 
     @Test func lifetimeSummaryTotalsEntriesAndKeepsTheFirstDate() async throws {
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
         let firstDate = Date(timeIntervalSince1970: 1_788_480_000)
         let secondDate = firstDate.addingTimeInterval(86_400)
-        try await manager.selectHabits([Habit(type: .coffee).id])
+        try await manager.enableSelectedHabits([Habit(type: .coffee).id])
         for _ in 0..<2 { try await manager.recordCoffee(on: firstDate) }
         for _ in 0..<3 { try await manager.recordCoffee(on: secondDate) }
 
@@ -103,8 +103,8 @@ struct HabitsManagerTests {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let friday = calendar.date(from: DateComponents(year: 2026, month: 9, day: 4, hour: 12))!
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), calendar: calendar, currentDate: TestAppModelFactory.currentDate)
-        try await manager.selectHabits([Habit(type: .coffee).id])
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), calendar: calendar, currentDate: TestAppModelFactory.currentDate)
+        try await manager.enableSelectedHabits([Habit(type: .coffee).id])
         try await manager.recordCoffee(on: friday)
 
         let summary = await manager.weekSummary(for: Habit(type: .coffee).id, on: friday)
@@ -118,9 +118,9 @@ struct HabitsManagerTests {
     }
 
     @Test func appModelRejectsValuesOutsideEachHabitPolicy() async throws {
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        try await manager.selectHabits([Habit(type: .sleep).id, Habit(type: .wakeTime).id])
+        try await manager.enableSelectedHabits([Habit(type: .sleep).id, Habit(type: .wakeTime).id])
 
         await #expect(throws: HabitError.self) {
             try await manager.recordSleep(hours: 25, on: date)
@@ -131,9 +131,9 @@ struct HabitsManagerTests {
     }
 
     @Test func namedCoffeeCommandsKeepTheStoredCountConsistent() async throws {
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        try await manager.selectHabits([Habit(type: .coffee).id])
+        try await manager.enableSelectedHabits([Habit(type: .coffee).id])
 
         try await manager.recordCoffee(on: date)
         try await manager.recordCoffee(on: date)

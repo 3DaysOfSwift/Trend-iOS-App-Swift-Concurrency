@@ -9,7 +9,7 @@ struct HabitsViewModelTests {
     @Test func purchaseReportsOnlyANewUnlockAsNew() async {
         let purchaseManager = PurchaseManager(client: InMemoryPurchaseClient())
         let viewModel = HabitsViewModel(
-            habitsFeature: HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate),
+            habitsFeature: HabitsManager(storage: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate),
             purchaseFeature: purchaseManager
         )
 
@@ -19,8 +19,8 @@ struct HabitsViewModelTests {
 
     @Test func dashboardExposesTodaysRecordedSummary() async throws {
         let date = Date(timeIntervalSince1970: 1_788_480_000)
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: { date })
-        try await manager.selectHabits([Habit(type: .coffee).id])
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: { date })
+        try await manager.enableSelectedHabits([Habit(type: .coffee).id])
         try await manager.recordCoffee(on: date)
         try await manager.recordCoffee(on: date)
         let viewModel = HabitsViewModel(
@@ -33,8 +33,8 @@ struct HabitsViewModelTests {
     }
 
     @Test func dashboardShowsAReadyStateBeforeCheckIn() async throws {
-        let manager = HabitsManager(dataStore: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
-        try await manager.selectHabits([Habit(type: .coffee).id])
+        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
+        try await manager.enableSelectedHabits([Habit(type: .coffee).id])
         let viewModel = HabitsViewModel(
             habitsFeature: manager,
             purchaseFeature: PurchaseManager(client: InMemoryPurchaseClient())

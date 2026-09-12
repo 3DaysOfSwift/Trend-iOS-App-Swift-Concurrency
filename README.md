@@ -17,6 +17,15 @@ ViewModels and UI-readable feature managers use Apple's Observation framework. V
 
 Read the complete [`AppModel iOS Application Template`](APPMODEL_IOS_APPLICATION_TEMPLATE.md) for the reusable rules and [`ARCHITECTURE.md`](ARCHITECTURE.md) for Trend's concrete implementation. The repository is also an installable [`appmodel-ios-template` skill](SKILL.md) that applies the same rules when an AI coding agent creates, changes, or reviews an iOS application.
 
+## AI skills
+
+This repository includes two reusable skills:
+
+- [AppModel iOS Template](SKILL.md): build, review or migrate an application using the AppModel and Feature Manager architecture.
+- [Swift Concurrency Overview](skills/swift-concurrency-overview/SKILL.md): read an application's code and draw understandable task journeys, including child tasks, suspension, cancellation and operation ordering. Includes the interactive Load Habits example from Trend.
+
+The architecture skill remains at the repository root; the overview skill is a separate package under `skills/swift-concurrency-overview`. The overview skill can explain other Swift architectures without changing them.
+
 ## iCloud sync
 
 `CloudKitWeightRepository` stores the weight store in the signed-in user's private CloudKit database. `FileWeightRepository` remains its durable offline cache. A local save completes first, and a pending-upload marker ensures an interrupted CloudKit write is retried on the next launch. If iCloud is unavailable, the app remains usable on that device.

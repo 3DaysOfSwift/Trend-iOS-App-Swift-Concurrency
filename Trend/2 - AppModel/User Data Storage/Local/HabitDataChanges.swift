@@ -16,11 +16,17 @@ struct HabitDataChanges {
             merged[day] = after[day]
         }
 
-        var selectedIDs = latest.selectedHabitIDs
-        selectedIDs.subtract(previous.selectedHabitIDs.subtracting(updated.selectedHabitIDs))
-        selectedIDs.formUnion(updated.selectedHabitIDs.subtracting(previous.selectedHabitIDs))
+        let previousIDs = Set(previous.enabledHabits.map(\.id))
+        let updatedIDs = Set(updated.enabledHabits.map(\.id))
+        let removedIDs = previousIDs.subtracting(updatedIDs)
+        var enabledHabits = latest.enabledHabits.filter { !removedIDs.contains($0.id) }
+        for habit in updated.enabledHabits where !previousIDs.contains(habit.id) {
+            if !enabledHabits.contains(where: { $0.id == habit.id }) {
+                enabledHabits.append(habit)
+            }
+        }
         return HabitData(
-            selectedHabitIDs: selectedIDs,
+            enabledHabits: enabledHabits,
             entries: merged.values.sorted {
                 if $0.date != $1.date { return $0.date > $1.date }
                 return $0.id.uuidString < $1.id.uuidString
