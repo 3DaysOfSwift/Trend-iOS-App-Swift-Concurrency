@@ -79,6 +79,14 @@ and provide the resulting viewable output.
 
 ## Verify and Hand Off
 
+When using Swift Architecture Explorer, read its `OBSERVATIONS.md` format before
+writing journey notes. Generate an inventory first; bind notes to its exact
+source fingerprint and creation-site IDs, then import with `--observations`.
+Keep steps source-linked and list uninspected paths explicitly. Coverage counts
+sites with notes, not fully verified tasks. Do not add quality rankings or scores
+to this observational dashboard. If the Explorer is unavailable, still deliver
+the requested visual and source inventory without claiming an imported report.
+
 - Cross-check task boundaries, gates and completion ordering against source.
   Include paths and line references in the accompanying inventory or explanation.
 - Label the diagram as source-derived, illustrative, or runtime-observed. Never
