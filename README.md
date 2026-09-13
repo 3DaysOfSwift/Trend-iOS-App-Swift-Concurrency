@@ -15,16 +15,27 @@ That sentence is also the folder structure. Open `Trend` in Xcode and the first 
 
 ViewModels and UI-readable feature managers use Apple's Observation framework. Views own their `@Observable` ViewModel with `@State` and create an `@Bindable` projection only when a control requires a binding. The project therefore contains no Combine publisher forwarding or `@Published` state.
 
-Read the complete [`AppModel iOS Application Template`](APPMODEL_IOS_APPLICATION_TEMPLATE.md) for the reusable rules and [`ARCHITECTURE.md`](ARCHITECTURE.md) for Trend's concrete implementation. The repository is also an installable [`appmodel-ios-template` skill](SKILL.md) that applies the same rules when an AI coding agent creates, changes, or reviews an iOS application.
+Read the complete [`AppModel iOS Application Template`](Documentation/APPMODEL_IOS_APPLICATION_TEMPLATE.md) for the reusable rules and [`ARCHITECTURE.md`](Documentation/ARCHITECTURE.md) for Trend's concrete implementation. The [Swift Concurrency Migration skill](Skills/swift-concurrency-migration/SKILL.md) applies the same rules when an AI coding agent creates, changes, or reviews an iOS application.
 
 ## AI skills
 
 This repository includes two reusable skills:
 
-- [AppModel iOS Template](SKILL.md): build, review or migrate an application using the AppModel and Feature Manager architecture.
-- [Swift Concurrency Overview](skills/swift-concurrency-overview/SKILL.md): read an application's code and draw understandable task journeys, including child tasks, suspension, cancellation and operation ordering. Includes the interactive Load Habits example from Trend.
+- [Swift Concurrency Migration](Skills/swift-concurrency-migration/SKILL.md): build, review or migrate an application using the AppModel and Feature Manager architecture.
+- [Xcode Project Dashboard](Skills/xcode-project-dashboard/SKILL.md): read an application's code and draw understandable task journeys, including child tasks, suspension, cancellation and operation ordering. Includes the interactive Load Habits example from Trend.
 
-The architecture skill remains at the repository root; the overview skill is a separate package under `skills/swift-concurrency-overview`. The overview skill can explain other Swift architectures without changing them.
+`Skills` contains exactly one folder per skill. Supporting references, metadata and assets stay with their owning skill. Project documents live in `Documentation`; this README remains the repository entry point. The architecture skill currently reads canonical documents from `Documentation`, so its folder alone is not a standalone installation package. The overview skill can explain other Swift architectures without changing them.
+
+```text
+Trend/
+├── Skills/
+│   ├── swift-concurrency-migration/
+│   └── xcode-project-dashboard/
+├── Documentation/
+├── Trend/
+├── TrendTests/
+└── Trend.xcodeproj/
+```
 
 ## iCloud sync
 

@@ -1,11 +1,11 @@
 ---
-name: appmodel-ios-template
+name: swift-concurrency-migration
 description: Use the AppModel, Feature Manager, MVVM layered architecture whenever an iOS developer explicitly requests it or asks for a brand-new SwiftUI Xcode project where it can form the foundation of the product. Also use it when changing or reviewing an application already built with this architecture, or when explicitly migrating a legacy iOS application and its GCD code to AppModel and cooperative Swift Concurrency. Do not replace an established architecture unless the developer asks.
 metadata:
   short-description: Build maintainable AppModel SwiftUI apps
 ---
 
-# AppModel iOS Application Template
+# Swift Concurrency Migration
 
 Apply this repository's canonical architecture rather than reconstructing it
 from this entry point.
@@ -32,8 +32,12 @@ completely before planning or changing code.
 Before designing, changing, or reviewing application architecture, read these
 files completely:
 
-1. [AppModel iOS Application Template](APPMODEL_IOS_APPLICATION_TEMPLATE.md)
-2. [Trend Reference Architecture](ARCHITECTURE.md)
+1. [AppModel iOS Application Template](../../Documentation/APPMODEL_IOS_APPLICATION_TEMPLATE.md)
+2. [Trend Reference Architecture](../../Documentation/ARCHITECTURE.md)
+
+These canonical documents are repository-level dependencies. Use this skill from
+the repository with its `Documentation` folder; copying only this skill folder
+is not yet a self-contained distribution package.
 
 The first file defines the rules. The second shows how those rules are applied
 in a real commercial-style SwiftUI application. When they differ, preserve the
