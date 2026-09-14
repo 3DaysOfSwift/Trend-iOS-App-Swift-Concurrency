@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 1,
+  "sourceFingerprint": "8875c651447b4878cc584497fa89e053130cba55fb108b5b402b4320c94dacb8",
+  "author": "Xcode Project Dashboard · source review",
+  "scope": "Focused review of 15 core rule groups and 15 concurrency/behaviour scenarios across playback, timing, presets and launch. Presentation-only gestures, visual styling and formatting are excluded from separation. Not an exhaustive whole-app certification; no tests or runtime tracing executed in this review.",
+  "findings": [
+    {
+      "title": "How does playback recover from an audio interruption?",
+      "status": "Recovery policy requires review",
+      "description": "Preparation activates the audio session. No interruption or route-change observer was found. Define what the user should see when a call or audio-device change interrupts playback; this source review does not establish a reproduced failure.",
+      "check": "Exercise interruption, route change and media-services reset on device; assert the intended stop/resume and error behaviour.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/Audio/AVFoundationMetronomeAudioPlayer.swift",
+          "line": 42,
+          "endLine": 54
+        }
+      ]
+    },
+    {
+      "title": "Should a failed preset decode erase the saved payload?",
+      "status": "Confirmed destructive recovery policy",
+      "description": "The storage actor removes the preset key after any JSON decoding failure. That includes data the current schema cannot decode. Decide whether preserving or quarantining the payload would better support recovery.",
+      "check": "Test an unsupported schema and corrupt payload, including what remains available after a second load.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/Preset Storage/UserDefaultsPresetRepository.swift",
+          "line": 23,
+          "endLine": 35
+        }
+      ]
+    }
+  ],
+  "testQuality": {
+    "scope": "Focused review of 15 core rule groups and 15 concurrency/behaviour scenarios across playback, timing, presets and launch. Presentation-only gestures, visual styling and formatting are excluded from separation. Not an exhaustive whole-app certification; no tests or runtime tracing executed in this review.",
+    "scenarios": [
+      {
+        "title": "Input boundaries reject invalid tempo and indices",
+        "status": "identified",
+        "detail": "Assertions check clamping, non-finite input rejection and unchanged patterns.",
+        "evidence": [
+          {
+            "file": "MetronomeTests/AppModel tests/Features/Metronome/MetronomeManagerCharacterisationTests.swift",
+            "line": 8,
+            "endLine": 34
+          }
+        ]
+      },
+      {
+        "title": "Repeated starts share pending work",
+        "status": "identified",
+        "detail": "Suspends start, launches another request, then asserts one start and one ticker.",
+        "evidence": [
+          {
+            "file": "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomeAudioConcurrencyTests.swift",
+            "line": 140,
+            "endLine": 160
+          }
+        ]
+      },
+      {
+        "title": "Stop during start prevents stale playback",
+        "status": "identified",
+        "detail": "Asserts cancellation, ordered start/stop/start and final playback state.",
+        "evidence": [
+          {
+            "file": "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomeAudioConcurrencyTests.swift",
+            "line": 163,
+            "endLine": 193
+          }
+        ]
+      },
+      {
+        "title": "Stop waits for an in-flight click",
+        "status": "identified",
+        "detail": "Asserts command ordering and no resumed visual beat after stop.",
+        "evidence": [
+          {
+            "file": "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomeAudioConcurrencyTests.swift",
+            "line": 196,
+            "endLine": 220
+          }
+        ]
+      },
+      {
+        "title": "Startup audio does not block preset loading",
+        "status": "identified",
+        "detail": "Both dependencies reach suspension before either is released.",
+        "evidence": [
+          {
+            "file": "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomeAudioConcurrencyTests.swift",
+            "line": 224,
+            "endLine": 240
+          }
+        ]
+      },
+      {
+        "title": "Initial-load edits keep submission order",
+        "status": "identified",
+        "detail": "Checks final BPM, persisted latest snapshot and a single named preset.",
+        "evidence": [
+          {
+            "file": "MetronomeTests/AppModel tests/Features/Metronome/Preset Storage/MetronomePresetPersistenceTests.swift",
+            "line": 10,
+            "endLine": 45
+          }
+        ]
+      },
+      {
+        "title": "Coalesced writes preserve edits despite caller cancellation",
+        "status": "identified",
+        "detail": "Checks two writes preserve three edits and clear saving state.",
+        "evidence": [
+          {
+            "file": "MetronomeTests/AppModel tests/Features/Metronome/Preset Storage/MetronomePresetPersistenceTests.swift",
+            "line": 49,
+            "endLine": 76
+          }
+        ]
+      },
+      {
+        "title": "Concurrent callers share one load",
+        "status": "identified",
+        "detail": "Asserts one repository load and loading state clears.",
+        "evidence": [
+          {
+            "file": "MetronomeTests/AppModel tests/Features/Metronome/Preset Storage/MetronomePresetPersistenceTests.swift",
+            "line": 79,
+            "endLine": 98
+          }
+        ]
+      },
+      {
+        "title": "Save captures input before suspension",
+        "status": "identified",
+        "detail": "Changes BPM during load and checks the captured original reaches storage.",
+        "evidence": [
+          {
+            "file": "MetronomeTests/AppModel tests/Features/Metronome/Preset Storage/MetronomePresetPersistenceTests.swift",
+            "line": 101,
+            "endLine": 115
+          }
+        ]
+      },
+      {
+        "title": "Failed saves can retry without duplication",
+        "status": "identified",
+        "detail": "Asserts visible failure, retained local edits and successful retry.",
+        "evidence": [
+          {
+            "file": "MetronomeTests/AppModel tests/Features/Metronome/Preset Storage/MetronomePresetPersistenceTests.swift",
+            "line": 151,
+            "endLine": 164
+          }
+        ]
+      },
+      {
+        "title": "Late audio refill skips expired beats",
+        "status": "identified",
+        "detail": "Checks skipped count, absolute deadlines and musical indices.",
+        "evidence": [
+          {
+            "file": "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomeBeatScheduleTests.swift",
+            "line": 15,
+            "endLine": 23
+          }
+        ]
+      },
+      {
+        "title": "Tempo changes preserve committed deadlines",
+        "status": "identified",
+        "detail": "Checks exact absolute deadlines after several pending updates.",
+        "evidence": [
+          {
+            "file": "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomeBeatScheduleTests.swift",
+            "line": 46,
+            "endLine": 56
+          }
+        ]
+      },
+      {
+        "title": "Audio interruption and route recovery",
+        "status": "not-identified",
+        "detail": "No interruption/route-change recovery test or notification handler found in the searched production/test scope. Agree intended resume/stop behaviour before writing tests.",
+        "evidence": [
+          {
+            "file": "Metronome/2 - AppModel/Features/Metronome/Audio/AVFoundationMetronomeAudioPlayer.swift",
+            "line": 42,
+            "endLine": 59
+          }
+        ]
+      },
+      {
+        "title": "Live refill failure reaches visible feature state",
+        "status": "not-identified",
+        "detail": "Pure schedule tests cover deadlines, but a deterministic live refill-worker failure followed by feature error publication was not identified.",
+        "evidence": [
+          {
+            "file": "Metronome/2 - AppModel/Features/Metronome/Audio/AVFoundationMetronomeAudioPlayer.swift",
+            "line": 212,
+            "endLine": 229
+          }
+        ]
+      },
+      {
+        "title": "Cancelling one caller leaves a shared preset load usable",
+        "status": "not-identified",
+        "detail": "Load sharing is tested, and save cancellation is tested. A focused cancelled-load-waiter scenario was not identified in MetronomeTests.",
+        "evidence": [
+          {
+            "file": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift",
+            "line": 593,
+            "endLine": 610
+          }
+        ]
+      }
+    ],
+    "concerns": [],
+    "keep": {
+      "title": "Observation tests are not merely stored-property readbacks",
+      "detail": "The save-dialog test also checks observation invalidation and that draft editing leaves persisted feature state untouched. Those assertions protect a presentation contract; it should not be dismissed solely because a property is assigned.",
+      "evidence": [
+        {
+          "file": "MetronomeTests/View model tests/BeatPresetsViewModelTests.swift",
+          "line": 44,
+          "endLine": 58
+        }
+      ]
+    }
+  },
+  "evidenceHashes": {
+    "MetronomeTests/AppModel tests/AppModelTests.swift": "1893d013c2b1705753d6d23c6db8df29bdae098d6dea4525ad5498c3249d0d14",
+    "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomeAudioConcurrencyTests.swift": "59960ec7e00b30af1a5352920286a82df1bbcc48e5d5ffd1e0e675ddbb38ea35",
+    "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomeAudioFailureTests.swift": "98ecf493e2170118d4ad4933e9a69038c6cfcf716428b1ef92a3702ea9e0a5d6",
+    "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomeBeatScheduleTests.swift": "d78ecaa8b56b3c5d5c27e817935a80a834dc1b460532cba86b937113694d6124",
+    "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomePlaybackPatternTests.swift": "52754f892230ca27f369d018d4104333e226b933979e86885c81f8c946ef0245",
+    "MetronomeTests/AppModel tests/Features/Metronome/Data Types/NoteValueTests.swift": "2526a9f15192bedad67a7bd44e9428e8d98226f7450e04e1d895786da7af8e34",
+    "MetronomeTests/AppModel tests/Features/Metronome/MetronomeManagerCharacterisationTests.swift": "9b00e0187598e4fa7020c42e38f58a555f59971ace73d9e9ccfa58b388a8c0d2",
+    "MetronomeTests/AppModel tests/Features/Metronome/Preset Storage/MetronomePresetPersistenceTests.swift": "35ba5ebbc78f41471a78d38d4e35b58cdb4517816bb662756db2762c711a8599",
+    "MetronomeTests/AppModel tests/Features/Metronome/Preset Storage/UserDefaultsPresetRepositoryTests.swift": "c944d126126aab90c7fd645f5332a98c0c425fdc280341707a450bb17dcd2de1",
+    "MetronomeTests/AppModel tests/Features/Metronome/Timing/SwiftConcurrencyMetronomeTickerTests.swift": "5d52b5182bd6b975bd886d5572c2026adabfb2029c47cc100f1bede70a0cee1e",
+    "MetronomeTests/Integration tests/SharedFeatureObservationTests.swift": "ea30471079fa5a689b71281b4f2e130e0ad8968576624e8e598d35439b7b6ddb",
+    "MetronomeTests/Presentation tests/ThemeManagerTests.swift": "4a0f1d58c438c050a4216994da29e1cb0ffb0db696f67f081c433e1082228929",
+    "MetronomeTests/Test Doubles/ControllableDelayScheduler.swift": "34f169ade50b178afdbcddbb395c90b4d608a259a329b504ace8a254bacd598b",
+    "MetronomeTests/Test Doubles/ControllableMetronomeTicker.swift": "8c71fb3ec53d1d03a1ec473ce278e6de7e37a94bc401233c279865e661ea06f0",
+    "MetronomeTests/Test Doubles/InMemoryPresetRepository.swift": "80ff309fb0b624a0785974ae2ce61a76babe08c401df2a16c9698c05ebc034c6",
+    "MetronomeTests/Test Doubles/RecordingMetronomeAudioPlayer.swift": "ee65143280acaf9fa538d05dd745d5b63e51b6e85852d484d76735410c9c7253",
+    "MetronomeTests/Test Doubles/SuspendedMetronomeAudioPlayer.swift": "aa7d804054b1668a8aa3767e4a4a8aa5a014a623dff13731b9fba250843cf07b",
+    "MetronomeTests/Test Doubles/SuspendedPresetRepository.swift": "b7981f1bf365d4eabd3ad4258fff5ade789f2833bc9a23860b51eac6899983b4",
+    "MetronomeTests/View model tests/BeatPresetsViewModelTests.swift": "c55f5ad360c3924a0775d89ea41034ade45e34b913108c3bdf9a54bfa675bb4e",
+    "MetronomeTests/View model tests/BeatTileViewModelTests.swift": "8ef4e12233aac623a523ec24569939244472fe917d1299bf58a002932aa15fdc",
+    "MetronomeTests/View model tests/ContentViewModelTests.swift": "846ae91ec08b87cc7f2ab1756bae77cd1d060514b0e202b0f7968f2896c6329c",
+    "MetronomeTests/View model tests/GridSettingsViewModelTests.swift": "73fdb555287661fe653ce8b7f80b2a3444b869caa00e4a61604b22dcf832776e",
+    "MetronomeTests/View model tests/GridViewModelTests.swift": "bfe4d70862a29a1ba36ac88b10fa7ab330edce732e37cd3a4aa0c4ba6198a15a",
+    "MetronomeTests/View model tests/NoteValuePickerViewModelTests.swift": "2ed0c1ace61ac949e288ba29c348f0bb1ac04eb001bfe097b0d3546e49593ce8",
+    "MetronomeTests/View model tests/SettingsViewModelTests.swift": "bff0c0e9c101c7aa48c78b45580ece9d0675adc7d22db2f2d02aa5aafb460578",
+    "MetronomeTests/View model tests/StarFieldViewModelTests.swift": "0a547ff30a18f40ec456384d41e1ecb98024ca4d64ec7bd899d46c05ab02eeb2"
+  }
+}

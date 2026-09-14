@@ -1,0 +1,456 @@
+{
+  "schemaVersion": 1,
+  "sourceFingerprint": "d9f1b14ae8dcfdb406ed069ca99b2f02fed786cef232a232a1fda31cf662eecc",
+  "author": "Swift Concurrency overview · source review",
+  "scope": "Source-backed findings from the Trend review. Suggested checks are not executed by report generation.",
+  "findings": [
+    {
+      "title": "Can overlapping weight edits lose a saved change?",
+      "status": "High · ordering risk",
+      "description": "Each edit builds a full store snapshot before awaiting save. A second edit can read the same old entries while the first is suspended. Serial file writes do not repair snapshots that already omitted one another. History deletes, goal saves and editor saves share this store.",
+      "check": "Suspend the first repository save; invoke a second add/delete/goal command; release both and assert the final store contains both intended changes.",
+      "evidence": [
+        {
+          "file": "Trend/2 - AppModel/Features/WeightLog/WeightLogManager.swift",
+          "line": 50,
+          "endLine": 58
+        },
+        {
+          "file": "Trend/2 - AppModel/Features/WeightLog/WeightLogManager.swift",
+          "line": 88,
+          "endLine": 100
+        }
+      ]
+    },
+    {
+      "title": "Can an older weight refresh replace newer UI state?",
+      "status": "High · stale-publication risk",
+      "description": "WeightLogManager.load publishes synchronization results after awaits without checking a generation. A concurrent save or another refresh can change entries meanwhile. The repository may return its initial localStore on unavailability or error.",
+      "check": "Pause cloud synchronization, save an entry, then complete the older refresh with its original snapshot. Assert the saved entry remains visible.",
+      "evidence": [
+        {
+          "file": "Trend/2 - AppModel/Features/WeightLog/WeightLogManager.swift",
+          "line": 35,
+          "endLine": 41
+        },
+        {
+          "file": "Trend/2 - AppModel/User Data Storage/CloudKit/CloudKitWeightRepository.swift",
+          "line": 51,
+          "endLine": 59
+        }
+      ]
+    },
+    {
+      "title": "Does checkout reject a second request at the model boundary?",
+      "status": "High · duplicate-request risk",
+      "description": "The View guards isPurchasing before Task creation, but the manager sets the flag later and does not guard purchaseHabits or restorePurchases. Concurrent callers can enter both, and one defer can clear busy state while another call remains active. This does not establish duplicate charges.",
+      "check": "Use a paused PurchaseClient; invoke purchase twice and restore during purchase. Assert the intended ignore/share policy and busy-state lifetime.",
+      "evidence": [
+        {
+          "file": "Trend/1 - View/Views/Habits/HabitsView.swift",
+          "line": 120,
+          "endLine": 127
+        },
+        {
+          "file": "Trend/2 - AppModel/Features/Purchases/PurchaseManager.swift",
+          "line": 57,
+          "endLine": 75
+        },
+        {
+          "file": "Trend/2 - AppModel/Features/Purchases/PurchaseManager.swift",
+          "line": 74,
+          "endLine": 88
+        }
+      ]
+    },
+    {
+      "title": "Does “Delete all data” really include habits?",
+      "status": "Confirmed · scope mismatch",
+      "description": "Settings exposes a delete-all action, but SettingsManager only clears WeightStore and weight-derived features. Habit entries and selections remain. The export payload likewise contains weights and goal only.",
+      "check": "Seed weights and habits; test deletion and backup round trips across both. Decide whether labels or the model operation scope should change.",
+      "evidence": [
+        {
+          "file": "Trend/1 - View/Views/Settings/SettingsView.swift",
+          "line": 62,
+          "endLine": 62
+        },
+        {
+          "file": "Trend/2 - AppModel/Features/Settings/SettingsManager.swift",
+          "line": 62,
+          "endLine": 66
+        },
+        {
+          "file": "Trend/2 - AppModel/Features/Settings/SettingsManager.swift",
+          "line": 52,
+          "endLine": 60
+        }
+      ]
+    },
+    {
+      "title": "Are imported values validated like manually entered values?",
+      "status": "Confirmed · validation bypass",
+      "description": "The backup actor decodes WeightStore and SettingsManager replaces the store directly. The date and weight validation used by manual entry is not called on imported entries or goal values.",
+      "check": "Import syntactically valid JSON containing future dates and out-of-range weights/goals; assert rejection or a documented normalization policy.",
+      "evidence": [
+        {
+          "file": "Trend/2 - AppModel/User Data Storage/Local/BackupFileManager.swift",
+          "line": 15,
+          "endLine": 25
+        },
+        {
+          "file": "Trend/2 - AppModel/Features/Settings/SettingsManager.swift",
+          "line": 56,
+          "endLine": 60
+        },
+        {
+          "file": "Trend/2 - AppModel/Features/WeightLog/WeightUnit.swift",
+          "line": 16,
+          "endLine": 26
+        }
+      ]
+    },
+    {
+      "title": "Can weight uploads overlap despite cancellation?",
+      "status": "Medium · external write ordering risk",
+      "description": "Save cancels uploadTask and creates another. synchronize can also upload outside that handle. Cancellation checks surround upload but do not make its remote side effects atomic or reversible.",
+      "check": "Use a controllable cloud client to complete old/new uploads in both orders and verify durable pending state and eventual newest data. Live CloudKit behavior is unmeasured.",
+      "evidence": [
+        {
+          "file": "Trend/2 - AppModel/User Data Storage/CloudKit/CloudKitWeightRepository.swift",
+          "line": 89,
+          "endLine": 93
+        },
+        {
+          "file": "Trend/2 - AppModel/User Data Storage/CloudKit/CloudKitWeightRepository.swift",
+          "line": 95,
+          "endLine": 109
+        },
+        {
+          "file": "Trend/2 - AppModel/User Data Storage/CloudKit/CloudKitWeightRepository.swift",
+          "line": 55,
+          "endLine": 63
+        }
+      ]
+    },
+    {
+      "title": "Are completed streak calculations still current?",
+      "status": "Medium · stale-publication risk",
+      "description": "DailyStreakManager awaits an assessment for each populated day and then writes snapshot without a generation check. Unlike ProgressTracker, a superseded refresh is not cancelled or prevented from publishing.",
+      "check": "Overlap refreshes using old and new entry sets and controlled assessment completion. Assert only the latest intended snapshot publishes.",
+      "evidence": [
+        {
+          "file": "Trend/2 - AppModel/Features/Daily Streak/DailyStreakManager.swift",
+          "line": 61,
+          "endLine": 76
+        },
+        {
+          "file": "Trend/2 - AppModel/Features/Progress/ProgressTracker.swift",
+          "line": 42,
+          "endLine": 57
+        }
+      ]
+    },
+    {
+      "title": "Why can the UI and model accept different input ranges?",
+      "status": "Confirmed · policy duplication",
+      "description": "Sleep caps its slider at 14 hours while the model accepts 24. Running caps input at 30 km or 20 miles while model policy accepts 200 km. These are product input constraints defined in two layers.",
+      "check": "Confirm the intended recording limits and test both unit selections against the central policy.",
+      "evidence": [
+        {
+          "file": "Trend/1 - View/Views/Habits/Tracking/Sleep/SleepTrackingView.swift",
+          "line": 58,
+          "endLine": 59
+        },
+        {
+          "file": "Trend/1 - View/Views/Habits/Tracking/Running/RunningTrackingView.swift",
+          "line": 51,
+          "endLine": 53
+        },
+        {
+          "file": "Trend/2 - AppModel/Features/Habits/Data Types/Habit.swift",
+          "line": 64,
+          "endLine": 71
+        }
+      ]
+    },
+    {
+      "title": "Can the user see habit cloud synchronization failures?",
+      "status": "Confirmed · visibility gap",
+      "description": "HabitsManager preserves successful local saves and exposes synchronizationError, which is appropriate. Current habit ViewModels and Views do not expose that property. The settings iCloud label reports the weight repository’s account status, not habit synchronization status.",
+      "check": "Fail the habit cloud client after a successful local write; verify a nonblocking UI indication and retry path without presenting the local save as failed.",
+      "evidence": [
+        {
+          "file": "Trend/2 - AppModel/Features/Habits/HabitsManager.swift",
+          "line": 109,
+          "endLine": 112
+        },
+        {
+          "file": "Trend/1 - View/Views/Habits/HabitsViewModel.swift",
+          "line": 26,
+          "endLine": 34
+        }
+      ]
+    }
+  ],
+  "testQuality": {
+    "scope": "Targeted first pass: habit operation coordination, weight persistence, purchases, history failures, settings import/export/deletion, progress-range behaviour and theme persistence. Not an exhaustive audit of all 114 tests. Test names were searched across TrendTests; assertions were read for the evidence below. No mutation testing was performed.",
+    "scenarios": [
+      {
+        "title": "Overlapping habit additions preserve both values",
+        "status": "identified",
+        "detail": "The test pauses storage and asserts both returned counts plus the final persisted value.",
+        "evidence": [
+          {
+            "file": "TrendTests/AppModel tests/HabitsWorkerIntegrationTests.swift",
+            "line": 53,
+            "endLine": 77,
+            "excerpt": "    @Test func overlappingRecordingsPreserveBothValues() async throws {\n        let dataStore = SuspendedHabitDataStore()\n        let date = Date(timeIntervalSince1970: 1_788_480_000)\n        let manager = HabitsManager(storage: dataStore, currentDate: { date })\n        try await manager.enableSelectedHabits([Habit(type: .coffee).id])\n        await dataStore.pauseNextSave()\n        let first = Task { try await manager.recordCoffee() }\n        await dataStore.waitForPausedSave()\n        let second = Task { try await manager.recordCoffee() }\n        #expect(manager.entries.isEmpty)\n        await dataStore.releaseSave()\n        let firstEntry = try await first.value\n        let secondEntry = try await second.value\n        #expect(firstEntry.value == 1)\n        #expect(secondEntry.value == 2)\n        #expect(firstEntry.id != secondEntry.id)\n        #expect(manager.todaysEntry(for: Habit(type: .coffee).id) == secondEntry)\n        #expect(manager.todaysEntry(for: Habit(type: .coffee).id)?.value == 2)\n        #expect(manager.currentWeekSummary(for: Habit(type: .coffee).id).totalValue == 2)\n        let saved = try await dataStore.load()\n        #expect(saved.entries.first?.value == 2)\n    }\n\n    @Test func loadingAfterARecordingKeepsTheSavedData() async throws {\n        let dataStore = SuspendedHabitDataStore()"
+          }
+        ]
+      },
+      {
+        "title": "Shared habit loading survives a cancelled caller",
+        "status": "identified",
+        "detail": "The helper asserts one storage load, four completed callers and the expected final load state.",
+        "evidence": [
+          {
+            "file": "TrendTests/AppModel tests/HabitsWorkerIntegrationTests.swift",
+            "line": 19,
+            "endLine": 54,
+            "excerpt": "    private func checkSharedLoad(failing: Bool) async {\n        let dataStore = SuspendedHabitDataStore()\n        let manager = HabitsManager(storage: dataStore, currentDate: TestAppModelFactory.currentDate)\n        await dataStore.pauseNextLoad()\n        var started = 0\n        var finished = 0\n        let callers = (0..<4).map { _ in\n            Task {\n                started += 1\n                await manager.load()\n                if failing {\n                    #expect(manager.errorMessage != nil)\n                } else {\n                    #expect(manager.loadState == .ready)\n                }\n                finished += 1\n            }\n        }\n        await dataStore.waitForPausedLoad()\n        while started < 4 { await Task.yield() }\n        #expect(finished == 0)\n        #expect(await dataStore.loadCount == 1)\n        callers[0].cancel()\n        await dataStore.releaseLoad(failing: failing)\n        for caller in callers { await caller.value }\n        #expect(finished == 4)\n        #expect(await dataStore.loadCount == 1)\n\n        await manager.load()\n        #expect(await dataStore.loadCount == (failing ? 2 : 1))\n        #expect(manager.loadState == .ready)\n        #expect(manager.errorMessage == nil)\n    }\n\n    @Test func overlappingRecordingsPreserveBothValues() async throws {\n        let dataStore = SuspendedHabitDataStore()"
+          }
+        ]
+      },
+      {
+        "title": "Failed habit save preserves state and releases the next operation",
+        "status": "identified",
+        "detail": "A failed write leaves the old value visible; the next write succeeds.",
+        "evidence": [
+          {
+            "file": "TrendTests/AppModel tests/HabitsWorkerIntegrationTests.swift",
+            "line": 91,
+            "endLine": 115,
+            "excerpt": "    @Test func failedSavePreservesPublishedValuesAndAllowsTheNextOperation() async throws {\n        let dataStore = SuspendedHabitDataStore()\n        let date = Date(timeIntervalSince1970: 1_788_480_000)\n        let manager = HabitsManager(storage: dataStore, currentDate: { date })\n        try await manager.enableSelectedHabits([Habit(type: .coffee).id])\n        try await manager.recordCoffee()\n        await dataStore.pauseNextSave()\n        let failed = Task { try await manager.recordCoffee() }\n        await dataStore.waitForPausedSave()\n        await dataStore.releaseSave(failing: true)\n        do {\n            try await failed.value\n            #expect(false)\n        } catch {}\n        #expect(manager.todaysEntry(for: Habit(type: .coffee).id)?.value == 1)\n        #expect(manager.currentWeekSummary(for: Habit(type: .coffee).id).totalValue == 1)\n        try await manager.recordCoffee()\n        #expect(manager.todaysEntry(for: Habit(type: .coffee).id)?.value == 2)\n    }\n\n    @Test func cancelledQueuedRecordingDoesNotWrite() async throws {\n        let dataStore = SuspendedHabitDataStore()\n        let manager = HabitsManager(storage: dataStore, currentDate: TestAppModelFactory.currentDate)\n        try await manager.enableSelectedHabits([Habit(type: .coffee).id])\n        await dataStore.pauseNextSave()"
+          }
+        ]
+      },
+      {
+        "title": "Successful persistence still publishes after cancellation",
+        "status": "identified",
+        "detail": "Cancellation arrives while the save is suspended; stored and visible entries must agree.",
+        "evidence": [
+          {
+            "file": "TrendTests/AppModel tests/HabitsWorkerIntegrationTests.swift",
+            "line": 157,
+            "endLine": 174,
+            "excerpt": "    @Test func successfulSaveStillPublishesWhenCancellationArrivesDuringPersistence() async throws {\n        let dataStore = SuspendedHabitDataStore()\n        let manager = HabitsManager(storage: dataStore, currentDate: TestAppModelFactory.currentDate)\n        try await manager.enableSelectedHabits([Habit(type: .coffee).id])\n        await dataStore.pauseNextSave()\n        let recording = Task { try await manager.recordCoffee() }\n        await dataStore.waitForPausedSave()\n        recording.cancel()\n        await dataStore.releaseSave()\n        try await recording.value\n        #expect(manager.entries.first?.value == 1)\n        let saved = try await dataStore.load()\n        #expect(saved.entries == manager.entries)\n    }\n\n    @Test func swiftUIObservationTracksSharedFeatureState() async throws {\n        let date = Date(timeIntervalSince1970: 1_788_480_000)\n        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: { date })"
+          }
+        ]
+      },
+      {
+        "title": "Completed checkout unlocks the feature",
+        "status": "identified",
+        "detail": "A fake purchase client exercises the manager command and entitlement publication, not live StoreKit.",
+        "evidence": [
+          {
+            "file": "TrendTests/AppModel tests/PurchaseManagerTests.swift",
+            "line": 20,
+            "endLine": 31,
+            "excerpt": "    @Test func completedPurchaseUnlocksHabits() async {\n        let client = InMemoryPurchaseClient()\n        let manager = PurchaseManager(client: client)\n        manager.observeTransactionUpdates()\n        await manager.refreshStoreState()\n\n        await manager.purchaseHabits()\n\n        #expect(manager.hasUnlockedHabits)\n    }\n\n    @Test func cancelledPurchaseLeavesHabitsLocked() async {"
+          }
+        ]
+      },
+      {
+        "title": "Cancelled checkout leaves access locked without a message",
+        "status": "identified",
+        "detail": "Both access state and absence of messaging are asserted.",
+        "evidence": [
+          {
+            "file": "TrendTests/AppModel tests/PurchaseManagerTests.swift",
+            "line": 31,
+            "endLine": 44,
+            "excerpt": "    @Test func cancelledPurchaseLeavesHabitsLocked() async {\n        let client = InMemoryPurchaseClient()\n        client.nextOutcome = .cancelled\n        let manager = PurchaseManager(client: client)\n        manager.observeTransactionUpdates()\n        await manager.refreshStoreState()\n\n        await manager.purchaseHabits()\n\n        #expect(!manager.hasUnlockedHabits)\n        #expect(manager.message == nil)\n    }\n\n    @Test func entitlementLoadsWhenProductMetadataFails() async {"
+          }
+        ]
+      },
+      {
+        "title": "Product metadata failure does not hide an existing entitlement",
+        "status": "identified",
+        "detail": "The test injects metadata failure and checks entitlement, absent product and error presentation.",
+        "evidence": [
+          {
+            "file": "TrendTests/AppModel tests/PurchaseManagerTests.swift",
+            "line": 44,
+            "endLine": 57,
+            "excerpt": "    @Test func entitlementLoadsWhenProductMetadataFails() async {\n        let client = InMemoryPurchaseClient()\n        client.hasPurchased = true\n        client.productError = TestPurchaseError.productUnavailable\n        let manager = PurchaseManager(client: client)\n\n        await manager.refreshStoreState()\n\n        #expect(manager.hasUnlockedHabits)\n        #expect(manager.habitsProduct == nil)\n        #expect(manager.message != nil)\n    }\n\n    @Test func restoreReadsTheCustomersExistingEntitlement() async {"
+          }
+        ]
+      },
+      {
+        "title": "History deletion failure preserves the entry and presents the error",
+        "status": "identified",
+        "detail": "The failed repository write is reflected in both retained data and the ViewModel message.",
+        "evidence": [
+          {
+            "file": "TrendTests/View model tests/HistoryViewModelTests.swift",
+            "line": 35,
+            "endLine": 53,
+            "excerpt": "    @Test func deleteFailureIsPresentedAndEntryRemains() async {\n        let entry = WeightEntry(date: .now, kilograms: 75)\n        let repository = InMemoryWeightRepository(\n            store: .init(entries: [entry], goalKilograms: nil),\n            saveError: .saveFailed\n        )\n        let appModel = TestAppModelFactory.make(repository: repository)\n        await appModel.weightEntries.refresh()\n        let viewModel = HistoryViewModel(history: appModel.weightEntries)\n\n        await viewModel.delete(entry)\n\n        #expect(viewModel.entries == [entry])\n        #expect(viewModel.errorMessage == \"The test repository could not save.\")\n    }\n\n    @Test func refreshExposesLoadFailure() async {\n        let repository = InMemoryWeightRepository(loadError: .loadFailed)\n        let viewModel = HistoryViewModel(history: TestAppModelFactory.make(repository: repository).weightEntries)"
+          }
+        ]
+      },
+      {
+        "title": "Overlapping weight edits preserve both changes",
+        "status": "not-identified",
+        "detail": "No focused overlap test identified in WeightLogManagerTests or the test-name search. Pause the first save, submit another edit, then inspect durable and published state.",
+        "evidence": [
+          {
+            "file": "Trend/2 - AppModel/Features/WeightLog/WeightLogManager.swift",
+            "line": 50,
+            "endLine": 65,
+            "excerpt": "    func add(_ draft: WeightEntryDraft, unit: WeightUnit) async throws {\n        var candidate = store\n        candidate.entries.append(WeightEntry(\n            date: draft.date,\n            kilograms: try draft.kilograms(using: unit),\n            note: draft.note.trimmed\n        ))\n        try await commit(candidate)\n    }\n\n    func update(_ entry: WeightEntry, with draft: WeightEntryDraft, unit: WeightUnit) async throws {\n        var candidate = store\n        guard let index = candidate.entries.firstIndex(where: { $0.id == entry.id }) else { return }\n        candidate.entries[index].date = draft.date\n        candidate.entries[index].kilograms = try draft.kilograms(using: unit)\n        candidate.entries[index].note = draft.note.trimmed"
+          }
+        ]
+      },
+      {
+        "title": "Older weight refresh cannot replace a newer save",
+        "status": "not-identified",
+        "detail": "Existing tests cover early cached publication, not a refresh completing after a newer mutation. Control synchronization completion order.",
+        "evidence": [
+          {
+            "file": "Trend/2 - AppModel/Features/WeightLog/WeightLogManager.swift",
+            "line": 35,
+            "endLine": 41,
+            "excerpt": "                let synchronizedStore = await repository.synchronize(localStore)\n                if synchronizedStore.entries != localStore.entries || synchronizedStore.goalKilograms != localStore.goalKilograms {\n                    publish(synchronizedStore)\n                    await prepareLoadedData()\n                }\n            } else {\n                publish(try await repository.load())"
+          }
+        ]
+      },
+      {
+        "title": "Repeated checkout follows an explicit single-checkout policy",
+        "status": "not-identified",
+        "detail": "No overlap assertion in PurchaseManagerTests. Decide ignore or share semantics, then assert client call count and busy-state lifetime with paused requests.",
+        "evidence": [
+          {
+            "file": "Trend/2 - AppModel/Features/Purchases/PurchaseManager.swift",
+            "line": 57,
+            "endLine": 75,
+            "excerpt": "    func purchaseHabits() async {\n        isPurchasing = true\n        defer { isPurchasing = false }\n        do {\n            switch try await client.purchase(productID: Self.habitsProductID) {\n            case .purchased:\n                await refreshEntitlements()\n            case .pending:\n                message = \"Your purchase is awaiting approval. Habits will unlock automatically when it completes.\"\n            case .cancelled:\n                break\n            }\n        } catch {\n            message = error.localizedDescription\n        }\n    }\n\n    func restorePurchases() async {\n        isPurchasing = true"
+          }
+        ]
+      },
+      {
+        "title": "Pending checkout explains approval without unlocking",
+        "status": "not-identified",
+        "detail": "The pending branch has no direct test in PurchaseManagerTests. Delayed-approval testing exercises a different path.",
+        "evidence": [
+          {
+            "file": "Trend/2 - AppModel/Features/Purchases/PurchaseManager.swift",
+            "line": 64,
+            "endLine": 70,
+            "excerpt": "            case .pending:\n                message = \"Your purchase is awaiting approval. Habits will unlock automatically when it completes.\"\n            case .cancelled:\n                break\n            }\n        } catch {\n            message = error.localizedDescription"
+          }
+        ]
+      },
+      {
+        "title": "Delete-all has an explicit cross-feature scope",
+        "status": "not-identified",
+        "detail": "The existing test seeds weights only. Decide whether all includes habits; seed both and assert the intended scope before treating the result as a failure.",
+        "evidence": [
+          {
+            "file": "Trend/2 - AppModel/Features/Settings/SettingsManager.swift",
+            "line": 62,
+            "endLine": 68,
+            "excerpt": "    func deleteAllData() async throws {\n        try await weightLog.removeAll()\n        await progress.refresh(entries: [])\n        await dailyStreak.refresh(entries: [])\n    }\n\n    private func refreshDerivedFeatures() async {"
+          }
+        ]
+      },
+      {
+        "title": "Imported entries follow agreed date and value constraints",
+        "status": "not-identified",
+        "detail": "The picker-error test does not exercise decoded file contents. Test valid JSON containing invalid domain values against the agreed reject or normalize policy.",
+        "evidence": [
+          {
+            "file": "Trend/2 - AppModel/Features/Settings/SettingsManager.swift",
+            "line": 56,
+            "endLine": 62,
+            "excerpt": "    func importData(from url: URL) async throws {\n        let importedStore = try await backupFiles.readWeightStore(from: url)\n        try await weightLog.replace(with: importedStore)\n        await refreshDerivedFeatures()\n    }\n\n    func deleteAllData() async throws {"
+          }
+        ]
+      }
+    ],
+    "concerns": [
+      {
+        "title": "Does changing the range change the displayed data?",
+        "detail": "changingRangeDelegatesToProgressFeature uses an empty data set and checks the range plus idle state. It verifies some forwarding, but could still pass if range storage worked while recalculation was removed. Strengthen it with dated entries inside and outside the range and assert the resulting points. Do not delete it as redundant.",
+        "evidence": [
+          {
+            "file": "TrendTests/View model tests/ProgressViewModelTests.swift",
+            "line": 27,
+            "endLine": 41,
+            "excerpt": "    @Test func changingRangeDelegatesToProgressFeature() async {\n        let appModel = TestAppModelFactory.make()\n        let viewModel = ProgressViewModel(progress: appModel.progressFeature)\n\n        viewModel.range = .all\n        let timeout = ContinuousClock.now.advanced(by: .seconds(1))\n        while viewModel.isLoading, ContinuousClock.now < timeout {\n            try? await Task.sleep(for: .milliseconds(1))\n        }\n\n        #expect(viewModel.range == .all)\n        #expect(!viewModel.isLoading)\n    }\n}\n"
+          },
+          {
+            "file": "Trend/2 - AppModel/Features/Progress/ProgressManager.swift",
+            "line": 29,
+            "endLine": 36,
+            "excerpt": "    func selectProgressRange(_ range: ProgressRange) {\n        progress.select(\n            range,\n            entries: weightLog.entries,\n            goalKilograms: weightLog.goalKilograms\n        )\n    }\n}"
+          }
+        ]
+      },
+      {
+        "title": "Does export preserve the intended data?",
+        "detail": "exportProducesJSONDocumentAndOpensExporter checks a document exists and exporter presentation, but never decodes the payload. Useful UI-state protection; incomplete protection for the export behaviour. Add a decode-and-compare assertion for entries and goal.",
+        "evidence": [
+          {
+            "file": "TrendTests/View model tests/SettingsViewModelTests.swift",
+            "line": 78,
+            "endLine": 93,
+            "excerpt": "    @Test func exportProducesJSONDocumentAndOpensExporter() async {\n        let repository = InMemoryWeightRepository(store: .init(entries: [], goalKilograms: 70))\n        let appModel = TestAppModelFactory.make(repository: repository)\n        await appModel.weightEntries.refresh()\n        await appModel.settingsFeature.refreshCloudStatus()\n        let viewModel = SettingsViewModel(settings: appModel.settingsFeature)\n\n        await viewModel.prepareExport()\n\n        #expect(viewModel.exportDocument != nil)\n        #expect(viewModel.isExporting)\n        #expect(viewModel.message == nil)\n    }\n\n    @Test func importPickerFailureIsPresented() async {\n        let viewModel = SettingsViewModel(settings: TestAppModelFactory.make().settingsFeature)"
+          },
+          {
+            "file": "Trend/2 - AppModel/Features/Settings/SettingsManager.swift",
+            "line": 52,
+            "endLine": 55,
+            "excerpt": "    func exportData() async throws -> Data {\n        try await backupFiles.encode(weightLog.store)\n    }\n"
+          }
+        ]
+      }
+    ],
+    "keep": {
+      "title": "Keep the theme persistence test",
+      "detail": "This is not a trivial assignment/readback check. It constructs a second ThemeManager with the same preferences and verifies the saved selection survives reconstruction. Removing persistence would break this test.",
+      "evidence": [
+        {
+          "file": "TrendTests/View model tests/ThemeManagerTests.swift",
+          "line": 17,
+          "endLine": 26,
+          "excerpt": "    @Test func remembersTheSelectedTheme() {\n        let preferences = isolatedPreferences()\n        let manager = ThemeManager(preferences: preferences)\n\n        manager.selectedTheme = .midnight\n\n        #expect(ThemeManager(preferences: preferences).selectedTheme == .midnight)\n    }\n\n    @Test func cyclingMovesThroughEveryThemeAndReturnsToDaylight() {"
+        }
+      ]
+    },
+    "evidenceHashes": {
+      "TrendTests/AppModel tests/HabitsWorkerIntegrationTests.swift": "6ac6f9cc502f63b0b30501d1504bca0a937e4f8813e717ed0567b22dbaa20a81",
+      "TrendTests/AppModel tests/PurchaseManagerTests.swift": "7e16542ee1e58d2fbeb48cf080a5d8bd024120125424c003f2d49eaaae20ce35",
+      "TrendTests/View model tests/HistoryViewModelTests.swift": "43a59cbf73dd734778c8c330ce80cec72fb22291082a72061e1de78a6082012f",
+      "Trend/2 - AppModel/Features/WeightLog/WeightLogManager.swift": "1b6b928ca98f2192290f417faf854b513434cfe9c6d16757128c407afc14027b",
+      "Trend/2 - AppModel/Features/Purchases/PurchaseManager.swift": "5763d155c0b4b949a8cfd07108cef5980c129e5b6dfe8243731aaa3c8b8a22a9",
+      "Trend/2 - AppModel/Features/Settings/SettingsManager.swift": "6f3417e97b9252aece09ea5ca8a881825a6bdb60fb37d6cde2d27492afc8b8d5",
+      "TrendTests/View model tests/ProgressViewModelTests.swift": "b504539dc8b3eeec1478b7da2b6758e967141f26fd88a18a001e0195eda0135d",
+      "Trend/2 - AppModel/Features/Progress/ProgressManager.swift": "5012c321ad375099830be129811df94342a25564d724522be0b895d89a490bc2",
+      "TrendTests/View model tests/SettingsViewModelTests.swift": "ac7b2220be0d9e0f432073d8df5ac062220d4752b38603eb7861ad4152695728",
+      "TrendTests/View model tests/ThemeManagerTests.swift": "e0ac5e3a4800de3f1b1ca974b31ada39bf6c6bf087b0e9a421353bd63381b35e"
+    }
+  },
+  "evidenceHashes": {
+    "TrendTests/AppModel tests/HabitsWorkerIntegrationTests.swift": "6ac6f9cc502f63b0b30501d1504bca0a937e4f8813e717ed0567b22dbaa20a81",
+    "TrendTests/AppModel tests/PurchaseManagerTests.swift": "7e16542ee1e58d2fbeb48cf080a5d8bd024120125424c003f2d49eaaae20ce35",
+    "TrendTests/View model tests/HistoryViewModelTests.swift": "43a59cbf73dd734778c8c330ce80cec72fb22291082a72061e1de78a6082012f",
+    "Trend/2 - AppModel/Features/WeightLog/WeightLogManager.swift": "1b6b928ca98f2192290f417faf854b513434cfe9c6d16757128c407afc14027b",
+    "Trend/2 - AppModel/Features/Purchases/PurchaseManager.swift": "5763d155c0b4b949a8cfd07108cef5980c129e5b6dfe8243731aaa3c8b8a22a9",
+    "Trend/2 - AppModel/Features/Settings/SettingsManager.swift": "6f3417e97b9252aece09ea5ca8a881825a6bdb60fb37d6cde2d27492afc8b8d5",
+    "TrendTests/View model tests/ProgressViewModelTests.swift": "b504539dc8b3eeec1478b7da2b6758e967141f26fd88a18a001e0195eda0135d",
+    "Trend/2 - AppModel/Features/Progress/ProgressManager.swift": "5012c321ad375099830be129811df94342a25564d724522be0b895d89a490bc2",
+    "TrendTests/View model tests/SettingsViewModelTests.swift": "ac7b2220be0d9e0f432073d8df5ac062220d4752b38603eb7861ad4152695728",
+    "TrendTests/View model tests/ThemeManagerTests.swift": "e0ac5e3a4800de3f1b1ca974b31ada39bf6c6bf087b0e9a421353bd63381b35e"
+  }
+}

@@ -1,0 +1,443 @@
+{
+  "schemaVersion": 1,
+  "sourceFingerprint": "8875c651447b4878cc584497fa89e053130cba55fb108b5b402b4320c94dacb8",
+  "author": "Xcode Project Dashboard · source review",
+  "scope": "Focused review of preset loading and saving: navigation, repeated requests and live storage. Full architecture analysis remains incomplete; project ratings withheld.",
+  "findings": [
+    {
+      "title": "How does playback recover from an audio interruption?",
+      "status": "Recovery policy requires review",
+      "description": "Preparation activates the audio session. No interruption or route-change observer was found. Define what the user should see when a call or audio-device change interrupts playback; this source review does not establish a reproduced failure.",
+      "check": "Exercise interruption, route change and media-services reset on device; assert the intended stop/resume and error behaviour.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/Audio/AVFoundationMetronomeAudioPlayer.swift",
+          "line": 42,
+          "endLine": 54,
+          "excerpt": "    func prepare() throws {\n        guard !isPrepared else { return }\n        try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)\n        try AVAudioSession.sharedInstance().setActive(true)\n        if !isConnected {\n            audioEngine.attach(playerNode)\n            audioEngine.connect(playerNode, to: audioEngine.mainMixerNode, format: nil)\n            audioEngine.attach(rhythmNode)\n            audioEngine.connect(rhythmNode, to: audioEngine.mainMixerNode,\n                                format: AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2))\n            isConnected = true\n        }\n"
+        }
+      ]
+    },
+    {
+      "title": "Should a failed preset decode erase the saved payload?",
+      "status": "Confirmed destructive recovery policy",
+      "description": "The storage actor removes the preset key after any JSON decoding failure. That includes data the current schema cannot decode. Decide whether preserving or quarantining the payload would better support recovery.",
+      "check": "Test an unsupported schema and corrupt payload, including what remains available after a second load.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/Preset Storage/UserDefaultsPresetRepository.swift",
+          "line": 23,
+          "endLine": 35,
+          "excerpt": "    func loadPresets() throws -> [BeatPreset] {\n        let userDefaults = try openStorage()\n        guard let data = userDefaults.data(forKey: storageKey) else { return [] }\n\n        do {\n            return try JSONDecoder().decode([BeatPreset].self, from: data)\n        } catch {\n            userDefaults.removeObject(forKey: storageKey)\n            throw error\n        }\n    }\n\n    func savePresets(_ presets: [BeatPreset]) throws {"
+        }
+      ]
+    }
+  ],
+  "evidenceHashes": {
+    "MetronomeTests/AppModel tests/AppModelTests.swift": "1893d013c2b1705753d6d23c6db8df29bdae098d6dea4525ad5498c3249d0d14",
+    "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomeAudioConcurrencyTests.swift": "59960ec7e00b30af1a5352920286a82df1bbcc48e5d5ffd1e0e675ddbb38ea35",
+    "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomeAudioFailureTests.swift": "98ecf493e2170118d4ad4933e9a69038c6cfcf716428b1ef92a3702ea9e0a5d6",
+    "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomeBeatScheduleTests.swift": "d78ecaa8b56b3c5d5c27e817935a80a834dc1b460532cba86b937113694d6124",
+    "MetronomeTests/AppModel tests/Features/Metronome/Audio/MetronomePlaybackPatternTests.swift": "52754f892230ca27f369d018d4104333e226b933979e86885c81f8c946ef0245",
+    "MetronomeTests/AppModel tests/Features/Metronome/Data Types/NoteValueTests.swift": "2526a9f15192bedad67a7bd44e9428e8d98226f7450e04e1d895786da7af8e34",
+    "MetronomeTests/AppModel tests/Features/Metronome/MetronomeManagerCharacterisationTests.swift": "9b00e0187598e4fa7020c42e38f58a555f59971ace73d9e9ccfa58b388a8c0d2",
+    "MetronomeTests/AppModel tests/Features/Metronome/Preset Storage/MetronomePresetPersistenceTests.swift": "35ba5ebbc78f41471a78d38d4e35b58cdb4517816bb662756db2762c711a8599",
+    "MetronomeTests/AppModel tests/Features/Metronome/Preset Storage/UserDefaultsPresetRepositoryTests.swift": "c944d126126aab90c7fd645f5332a98c0c425fdc280341707a450bb17dcd2de1",
+    "MetronomeTests/AppModel tests/Features/Metronome/Timing/SwiftConcurrencyMetronomeTickerTests.swift": "5d52b5182bd6b975bd886d5572c2026adabfb2029c47cc100f1bede70a0cee1e",
+    "MetronomeTests/Integration tests/SharedFeatureObservationTests.swift": "ea30471079fa5a689b71281b4f2e130e0ad8968576624e8e598d35439b7b6ddb",
+    "MetronomeTests/Presentation tests/ThemeManagerTests.swift": "4a0f1d58c438c050a4216994da29e1cb0ffb0db696f67f081c433e1082228929",
+    "MetronomeTests/Test Doubles/ControllableDelayScheduler.swift": "34f169ade50b178afdbcddbb395c90b4d608a259a329b504ace8a254bacd598b",
+    "MetronomeTests/Test Doubles/ControllableMetronomeTicker.swift": "8c71fb3ec53d1d03a1ec473ce278e6de7e37a94bc401233c279865e661ea06f0",
+    "MetronomeTests/Test Doubles/InMemoryPresetRepository.swift": "80ff309fb0b624a0785974ae2ce61a76babe08c401df2a16c9698c05ebc034c6",
+    "MetronomeTests/Test Doubles/RecordingMetronomeAudioPlayer.swift": "ee65143280acaf9fa538d05dd745d5b63e51b6e85852d484d76735410c9c7253",
+    "MetronomeTests/Test Doubles/SuspendedMetronomeAudioPlayer.swift": "aa7d804054b1668a8aa3767e4a4a8aa5a014a623dff13731b9fba250843cf07b",
+    "MetronomeTests/Test Doubles/SuspendedPresetRepository.swift": "b7981f1bf365d4eabd3ad4258fff5ade789f2833bc9a23860b51eac6899983b4",
+    "MetronomeTests/View model tests/BeatPresetsViewModelTests.swift": "c55f5ad360c3924a0775d89ea41034ade45e34b913108c3bdf9a54bfa675bb4e",
+    "MetronomeTests/View model tests/BeatTileViewModelTests.swift": "8ef4e12233aac623a523ec24569939244472fe917d1299bf58a002932aa15fdc",
+    "MetronomeTests/View model tests/ContentViewModelTests.swift": "846ae91ec08b87cc7f2ab1756bae77cd1d060514b0e202b0f7968f2896c6329c",
+    "MetronomeTests/View model tests/GridSettingsViewModelTests.swift": "73fdb555287661fe653ce8b7f80b2a3444b869caa00e4a61604b22dcf832776e",
+    "MetronomeTests/View model tests/GridViewModelTests.swift": "bfe4d70862a29a1ba36ac88b10fa7ab330edce732e37cd3a4aa0c4ba6198a15a",
+    "MetronomeTests/View model tests/NoteValuePickerViewModelTests.swift": "2ed0c1ace61ac949e288ba29c348f0bb1ac04eb001bfe097b0d3546e49593ce8",
+    "MetronomeTests/View model tests/SettingsViewModelTests.swift": "bff0c0e9c101c7aa48c78b45580ece9d0675adc7d22db2f2d02aa5aafb460578",
+    "MetronomeTests/View model tests/StarFieldViewModelTests.swift": "0a547ff30a18f40ec456384d41e1ecb98024ca4d64ec7bd899d46c05ab02eeb2"
+  },
+  "taskLifetimes": [
+    {
+      "siteId": "Metronome/1 - View/Views/BeatPresets/BeatPresetsView.swift:2971:task",
+      "handle": "untracked",
+      "creator": "synchronous",
+      "wait": "not-applicable",
+      "cancellation": "not-applicable",
+      "policy": "Synchronous Button/onDelete bridge. No retained handle here; downstream feature work has its own ordering/load policies. Another event does not automatically cancel this bridge.",
+      "evidence": [
+        {
+          "file": "Metronome/1 - View/Views/BeatPresets/BeatPresetsView.swift",
+          "line": 61,
+          "endLine": 100
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/1 - View/Views/BeatPresets/BeatPresetsView.swift:3261:task",
+      "handle": "untracked",
+      "creator": "synchronous",
+      "wait": "not-applicable",
+      "cancellation": "not-applicable",
+      "policy": "Synchronous Button/onDelete bridge. No retained handle here; downstream feature work has its own ordering/load policies. Another event does not automatically cancel this bridge.",
+      "evidence": [
+        {
+          "file": "Metronome/1 - View/Views/BeatPresets/BeatPresetsView.swift",
+          "line": 67,
+          "endLine": 106
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/1 - View/Views/BeatPresets/BeatPresetsView.swift:4644:task",
+      "handle": "untracked",
+      "creator": "synchronous",
+      "wait": "not-applicable",
+      "cancellation": "not-applicable",
+      "policy": "Synchronous Button/onDelete bridge. No retained handle here; downstream feature work has its own ordering/load policies. Another event does not automatically cancel this bridge.",
+      "evidence": [
+        {
+          "file": "Metronome/1 - View/Views/BeatPresets/BeatPresetsView.swift",
+          "line": 94,
+          "endLine": 133
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/1 - View/Views/BeatPresets/BeatPresetsView.swift:5997:task",
+      "handle": "untracked",
+      "creator": "synchronous",
+      "wait": "not-applicable",
+      "cancellation": "not-applicable",
+      "policy": "Synchronous Button/onDelete bridge. No retained handle here; downstream feature work has its own ordering/load policies. Another event does not automatically cancel this bridge.",
+      "evidence": [
+        {
+          "file": "Metronome/1 - View/Views/BeatPresets/BeatPresetsView.swift",
+          "line": 129,
+          "endLine": 142
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/1 - View/Views/Content/ContentView.swift:1449:task",
+      "handle": "untracked",
+      "creator": "synchronous",
+      "wait": "not-applicable",
+      "cancellation": "not-applicable",
+      "policy": "Synchronous Button/onDelete bridge. No retained handle here; downstream feature work has its own ordering/load policies. Another event does not automatically cancel this bridge.",
+      "evidence": [
+        {
+          "file": "Metronome/1 - View/Views/Content/ContentView.swift",
+          "line": 47,
+          "endLine": 86
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/1 - View/Views/Content/ContentView.swift:8689:task",
+      "handle": "untracked",
+      "creator": "synchronous",
+      "wait": "not-applicable",
+      "cancellation": "not-applicable",
+      "policy": "Synchronous Button/onDelete bridge. No retained handle here; downstream feature work has its own ordering/load policies. Another event does not automatically cancel this bridge.",
+      "evidence": [
+        {
+          "file": "Metronome/1 - View/Views/Content/ContentView.swift",
+          "line": 203,
+          "endLine": 242
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/1 - View/Views/Content/ContentView.swift:10863:task",
+      "handle": "untracked",
+      "creator": "synchronous",
+      "wait": "not-applicable",
+      "cancellation": "not-applicable",
+      "policy": "Synchronous Button/onDelete bridge. No retained handle here; downstream feature work has its own ordering/load policies. Another event does not automatically cancel this bridge.",
+      "evidence": [
+        {
+          "file": "Metronome/1 - View/Views/Content/ContentView.swift",
+          "line": 242,
+          "endLine": 278
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/1 - View/Views/Content/ContentViewModel.swift:2617:task",
+      "handle": "tracked",
+      "creator": "unknown",
+      "wait": "unknown",
+      "cancellation": "unknown",
+      "policy": "Handle retained by the ViewModel, feature or scheduler. Creating-context relationships across all callers have not been fully resolved; waiting and cancellation counts exclude this unresolved case.",
+      "evidence": [
+        {
+          "file": "Metronome/1 - View/Views/Content/ContentViewModel.swift",
+          "line": 101,
+          "endLine": 130
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/1 - View/Views/NoteValuePicker/NoteValuePickerViewModel.swift:1418:task",
+      "handle": "tracked",
+      "creator": "unknown",
+      "wait": "unknown",
+      "cancellation": "unknown",
+      "policy": "Handle retained by the ViewModel, feature or scheduler. Creating-context relationships across all callers have not been fully resolved; waiting and cancellation counts exclude this unresolved case.",
+      "evidence": [
+        {
+          "file": "Metronome/1 - View/Views/NoteValuePicker/NoteValuePickerViewModel.swift",
+          "line": 43,
+          "endLine": 54
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/1 - View/Views/StarField/StarFieldViewModel.swift:2415:task",
+      "handle": "tracked",
+      "creator": "unknown",
+      "wait": "unknown",
+      "cancellation": "unknown",
+      "policy": "Handle retained by the ViewModel, feature or scheduler. Creating-context relationships across all callers have not been fully resolved; waiting and cancellation counts exclude this unresolved case.",
+      "evidence": [
+        {
+          "file": "Metronome/1 - View/Views/StarField/StarFieldViewModel.swift",
+          "line": 82,
+          "endLine": 117
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/2 - AppModel/Features/Metronome/Audio/AVFoundationMetronomeAudioPlayer.swift:5918:task",
+      "handle": "tracked",
+      "creator": "unknown",
+      "wait": "unknown",
+      "cancellation": "unknown",
+      "policy": "Handle retained by the ViewModel, feature or scheduler. Creating-context relationships across all callers have not been fully resolved; waiting and cancellation counts exclude this unresolved case.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/Audio/AVFoundationMetronomeAudioPlayer.swift",
+          "line": 140,
+          "endLine": 179
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift:4436:task",
+      "handle": "tracked",
+      "creator": "task",
+      "wait": "awaited",
+      "cancellation": "not-forwarded",
+      "policy": "The caller joins this retained operation, directly or through the save worker. Cancellation is not automatically forwarded: shared loads and submitted persistence/audio operations have explicitly managed lifetimes. This is a relationship to inspect, not proof of a defect.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift",
+          "line": 95,
+          "endLine": 134
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift:7563:task",
+      "handle": "tracked",
+      "creator": "task",
+      "wait": "awaited",
+      "cancellation": "not-forwarded",
+      "policy": "The caller joins this retained operation, directly or through the save worker. Cancellation is not automatically forwarded: shared loads and submitted persistence/audio operations have explicitly managed lifetimes. This is a relationship to inspect, not proof of a defect.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift",
+          "line": 183,
+          "endLine": 222
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift:20137:task",
+      "handle": "tracked",
+      "creator": "task",
+      "wait": "awaited",
+      "cancellation": "not-forwarded",
+      "policy": "The caller joins this retained operation, directly or through the save worker. Cancellation is not automatically forwarded: shared loads and submitted persistence/audio operations have explicitly managed lifetimes. This is a relationship to inspect, not proof of a defect.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift",
+          "line": 534,
+          "endLine": 573
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift:21135:task",
+      "handle": "tracked",
+      "creator": "task",
+      "wait": "awaited",
+      "cancellation": "not-forwarded",
+      "policy": "The caller joins this retained operation, directly or through the save worker. Cancellation is not automatically forwarded: shared loads and submitted persistence/audio operations have explicitly managed lifetimes. This is a relationship to inspect, not proof of a defect.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift",
+          "line": 561,
+          "endLine": 600
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift:22532:task",
+      "handle": "tracked",
+      "creator": "task",
+      "wait": "awaited",
+      "cancellation": "not-forwarded",
+      "policy": "The caller joins this retained operation, directly or through the save worker. Cancellation is not automatically forwarded: shared loads and submitted persistence/audio operations have explicitly managed lifetimes. This is a relationship to inspect, not proof of a defect.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift",
+          "line": 598,
+          "endLine": 637
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift:28110:task",
+      "handle": "tracked",
+      "creator": "unknown",
+      "wait": "unknown",
+      "cancellation": "unknown",
+      "policy": "Handle retained by the ViewModel, feature or scheduler. Creating-context relationships across all callers have not been fully resolved; waiting and cancellation counts exclude this unresolved case.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift",
+          "line": 757,
+          "endLine": 796
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/2 - AppModel/Features/Metronome/Timing/SwiftConcurrencyDelayScheduler.swift:416:task",
+      "handle": "tracked",
+      "creator": "unknown",
+      "wait": "unknown",
+      "cancellation": "unknown",
+      "policy": "Handle retained by the ViewModel, feature or scheduler. Creating-context relationships across all callers have not been fully resolved; waiting and cancellation counts exclude this unresolved case.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/Timing/SwiftConcurrencyDelayScheduler.swift",
+          "line": 10,
+          "endLine": 36
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/2 - AppModel/Features/Metronome/Timing/SwiftConcurrencyMetronomeTicker.swift:360:task",
+      "handle": "tracked",
+      "creator": "unknown",
+      "wait": "unknown",
+      "cancellation": "unknown",
+      "policy": "Handle retained by the ViewModel, feature or scheduler. Creating-context relationships across all callers have not been fully resolved; waiting and cancellation counts exclude this unresolved case.",
+      "evidence": [
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/Timing/SwiftConcurrencyMetronomeTicker.swift",
+          "line": 9,
+          "endLine": 45
+        }
+      ]
+    }
+  ],
+  "concurrencyChecks": [
+    {
+      "siteId": "Metronome/1 - View/Views/BeatPresets/BeatPresetsView.swift:4940:view-task",
+      "title": "Does leaving Presets cancel the shared load?",
+      "status": "managed",
+      "path": "BeatPresetsView .task → BeatPresetsViewModel.loadSavedPresets → MetronomeManager.loadSavedPresets → UserDefaultsPresetRepository.loadPresets",
+      "trigger": "SwiftUI starts the View task; this modifier has no changing ID.",
+      "navigation": "SwiftUI requests cancellation of the View task when its lifetime ends. The manager-owned load is independent and is not cancelled by that request.",
+      "repetition": "Requests join presetLoadTask while loading; successful loads return immediately on later calls. Failure remains visible and permits retry.",
+      "lifetime": "The caller awaits the retained load. No cancellation forwarding is intentional: startup and this screen share the same manager. Waiting may therefore continue after the View task is cancelled.",
+      "effect": "Live storage is local UserDefaults, not a server. Reading can delete the stored key if decoding fails, then throw; the manager publishes the error. This recovery side effect also survives navigation and deserves a separate data-recovery review.",
+      "conclusion": "The shared-load lifetime is explicitly managed; navigation does not interrupt this worker. This does not endorse the destructive decode-recovery policy.",
+      "verification": "Source inspection only in this update. Regression scenario: suspend repository loading, cancel one of two callers, complete loading and verify the other caller receives the result.",
+      "evidence": [
+        {
+          "file": "Metronome/1 - View/Views/BeatPresets/BeatPresetsView.swift",
+          "line": 106,
+          "endLine": 106
+        },
+        {
+          "file": "Metronome/1 - View/Views/BeatPresets/BeatPresetsViewModel.swift",
+          "line": 17,
+          "endLine": 18
+        },
+        {
+          "file": "Metronome/1 - View/Views/BeatPresets/BeatPresetsViewModel.swift",
+          "line": 32,
+          "endLine": 34
+        },
+        {
+          "file": "Metronome/2 - AppModel/AppModel.swift",
+          "line": 22,
+          "endLine": 41
+        },
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift",
+          "line": 593,
+          "endLine": 617
+        },
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/Preset Storage/UserDefaultsPresetRepository.swift",
+          "line": 23,
+          "endLine": 32
+        }
+      ]
+    },
+    {
+      "siteId": "Metronome/1 - View/Views/BeatPresets/BeatPresetsView.swift:5997:task",
+      "title": "Can navigation or repeated Save requests interrupt persistence?",
+      "status": "managed",
+      "path": "Save Button Task → BeatPresetsViewModel.saveCurrentBeat → MetronomeManager.saveBeatPreset → applyPresetEdit → persistPresets → UserDefaultsPresetRepository.savePresets",
+      "trigger": "The alert Save action creates a Task. It is not the View .task modifier.",
+      "navigation": "There is no View-lifetime cancellation for this Button Task. The shared model retains edit and save workers, so dismissing the screen does not request their cancellation.",
+      "repetition": "Two invocations do not cancel one another. Each captures its preset before awaiting; edit Tasks await their predecessor. Same-name presets replace existing entries. One save worker writes snapshots sequentially and coalesces pending snapshots to the latest collection.",
+      "lifetime": "Button handle is not stored here; manager edit/save handles are retained and joined. MainActor serialization covers submission before the first await; the explicit chain, not actor isolation alone, orders whole edits.",
+      "effect": "UserDefaults receives encoded data locally; no server request occurs. Save failures are published in presetSaveError and retry submits the collection without reapplying an edit. UserDefaults.set returning is not a guarantee of a disk flush or survival of process termination.",
+      "conclusion": "The reviewed save path has explicit ordering and persistence ownership. Extra invocations may create bridge Tasks, but they do not cancel an earlier save or launch concurrent repository writes.",
+      "verification": "Source inspection only in this update. Regression scenario: hold the first repository write, submit another same-name save, navigate away, release storage and verify the latest collection and error/retry state.",
+      "evidence": [
+        {
+          "file": "Metronome/1 - View/Views/BeatPresets/BeatPresetsView.swift",
+          "line": 129,
+          "endLine": 135
+        },
+        {
+          "file": "Metronome/1 - View/Views/BeatPresets/BeatPresetsViewModel.swift",
+          "line": 42,
+          "endLine": 45
+        },
+        {
+          "file": "Metronome/2 - AppModel/AppModel.swift",
+          "line": 22,
+          "endLine": 41
+        },
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift",
+          "line": 512,
+          "endLine": 550
+        },
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/MetronomeManager.swift",
+          "line": 556,
+          "endLine": 591
+        },
+        {
+          "file": "Metronome/2 - AppModel/Features/Metronome/Preset Storage/UserDefaultsPresetRepository.swift",
+          "line": 35,
+          "endLine": 39
+        }
+      ]
+    }
+  ]
+}

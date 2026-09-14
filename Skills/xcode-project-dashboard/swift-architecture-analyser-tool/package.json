@@ -1,0 +1,10 @@
+{
+  "name": "swift-architecture-explorer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local, evidence-first Swift architecture and concurrency reports",
+  "engines": { "node": ">=20" },
+  "bin": { "swift-architecture": "./src/cli.mjs" },
+  "scripts": { "test": "node --test" }
+}
