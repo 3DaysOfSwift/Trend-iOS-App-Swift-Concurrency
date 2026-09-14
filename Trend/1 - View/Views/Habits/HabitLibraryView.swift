@@ -25,7 +25,7 @@ struct HabitLibraryView: View {
                                     .foregroundStyle(themeManager.palette.accent)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(habit.name).foregroundStyle(.primary)
-                                    Text(directionDescription(habit.desiredDirection))
+                                    Text(habit.prompt)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -38,6 +38,20 @@ struct HabitLibraryView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                }
+                Section("Your own daily habit") {
+                    TextField("For example: Walk outside", text: $viewModel.customName)
+                    Button("Add custom habit", systemImage: "plus.circle") { viewModel.addCustomDraft() }
+                        .disabled(viewModel.customName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSaving)
+                    ForEach(Array(viewModel.customNames.enumerated()), id: \.offset) { index, name in
+                        HStack {
+                            Text(name)
+                            Spacer()
+                            Button("Remove", systemImage: "minus.circle") { viewModel.customNames.remove(at: index) }
+                        }
+                    }
+                    Text("A simple Yes or No each day. Rest days are valid; you decide what fits your life.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("Choose Habits")
@@ -64,11 +78,4 @@ struct HabitLibraryView: View {
         }
     }
 
-    private func directionDescription(_ direction: DesiredDirection) -> String {
-        switch direction {
-        case .higher: "Encourage an upward trend"
-        case .lower: "Encourage a downward trend"
-        case .personalTarget: "Observe your personal rhythm"
-        }
-    }
 }

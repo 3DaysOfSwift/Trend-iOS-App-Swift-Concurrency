@@ -5,9 +5,12 @@ import SwiftUI
 struct TodayView: View {
     @State private var viewModel = TodayViewModel()
     @Environment(ThemeManager.self) private var themeManager
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var weightIsFocused: Bool
     @State private var showsDetails = false
+    @State private var isWeightWheelActive = false
     @State private var showsResult = false
+    @State private var showsCheckInConfirmation = false
     @State private var entryCardOffset: CGFloat = 0
     @State private var entryCardOpacity = 1.0
     @State private var themeChangeFeedback = 0
@@ -38,8 +41,11 @@ struct TodayView: View {
         }
         .task(id: viewModel.loadState) {
             guard viewModel.loadState == .ready else { return }
+            viewModel.prepareWeightInput()
             await focusWeightField()
         }
+        .task(id: viewModel.inputStyle) { await focusWeightField() }
+        .onChange(of: viewModel.unit) { viewModel.updateInputUnit() }
         .sensoryFeedback(.selection, trigger: themeChangeFeedback)
     }
 
@@ -63,7 +69,7 @@ struct TodayView: View {
             if !snapshot.days.isEmpty {
                 HStack(spacing: 4) {
                     Image(systemName: "flame.fill")
-                        .foregroundStyle(.orange.gradient)
+                        .foregroundStyle(themeManager.palette.streakAccent.gradient)
                     Text("\(snapshot.currentStreak)")
                         .font(.headline.bold().monospacedDigit())
                 }
@@ -144,12 +150,6 @@ struct TodayView: View {
 
         return ScrollView {
             VStack(spacing: 22) {
-                pageTitle
-
-                Text("How much do you weigh today?")
-                    .font(.title2.weight(.semibold))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
                 measurementCard
 
                 DisclosureGroup(isExpanded: $showsDetails) {
@@ -179,6 +179,7 @@ struct TodayView: View {
                         .padding()
                         .background(themeManager.palette.error.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
                 }
+                DailyHabitsView()
             }
             .padding(.horizontal, 20)
             .padding(.top, 20)
@@ -186,6 +187,8 @@ struct TodayView: View {
         }
         .scrollIndicators(.hidden)
         .scrollDismissesKeyboard(.interactively)
+        .scrollDisabled(isWeightWheelActive)
+        .onPreferenceChange(WeightWheelInteractionPreferenceKey.self) { isWeightWheelActive = $0 }
     }
 
     private var measurementCard: some View {
@@ -197,25 +200,14 @@ struct TodayView: View {
                 .tracking(1.8)
                 .foregroundStyle(.white.opacity(0.68))
 
-            TextField(
-                "0.0",
-                text: $viewModel.draft.value,
-                prompt: Text("0.0").foregroundStyle(.white.opacity(0.24))
-            )
-            .keyboardType(.decimalPad)
-            .focused($weightIsFocused)
-            .multilineTextAlignment(.center)
-            .font(.system(size: 104, weight: .medium, design: .rounded).monospacedDigit())
-            .foregroundStyle(.white)
-            .tint(.white)
-            .minimumScaleFactor(0.42)
-            .lineLimit(1)
-            .accessibilityLabel("Today’s weight")
-            .accessibilityValue(
-                viewModel.draft.value.isEmpty
-                    ? "Not entered"
-                    : "\(viewModel.draft.value) \(viewModel.unit.symbol)"
-            )
+            switch viewModel.inputStyle {
+            case .wheel:
+                WeightWheelInputView(value: $viewModel.draft.value, unit: viewModel.unit,
+                                     useKeyboard: viewModel.useKeyboard)
+            case .keyboard:
+                WeightKeyboardInputView(value: $viewModel.draft.value, unit: viewModel.unit,
+                                        isFocused: $weightIsFocused)
+            }
 
             Text(viewModel.unit.symbol.uppercased())
                 .font(.headline.monospaced())
@@ -249,6 +241,10 @@ struct TodayView: View {
                 ZStack {
                     Circle()
                         .fill(.white)
+                        .overlay {
+                            Circle()
+                                .strokeBorder(themeManager.palette.streakAccent, lineWidth: 3)
+                        }
                         .shadow(color: .black.opacity(0.22), radius: 10, y: 5)
 
                     if viewModel.isSaving {
@@ -268,15 +264,16 @@ struct TodayView: View {
             .padding(18)
         }
         .contentShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-        .onTapGesture { weightIsFocused = true }
+        .onTapGesture { if viewModel.inputStyle == .keyboard { weightIsFocused = true } }
+        .disabled(viewModel.loadState != .ready || viewModel.isSaving)
     }
 
     private func resultContent(_ result: DailyCheckInResult) -> some View {
         ScrollView {
             VStack(spacing: 14) {
                 pageTitle
-                verdict(result.assessment)
-                progressCard
+                resultChart(result.assessment)
+                DailyHabitsView()
                 guidanceCard(
                     title: "Today’s tiny idea",
                     emoji: "💡",
@@ -357,15 +354,47 @@ struct TodayView: View {
                 .font(.largeTitle.bold())
                 .multilineTextAlignment(.center)
 
-            if let change = assessment.changeKilograms {
-                Text(viewModel.unit.formatted(kilograms: change, signed: true))
-                    .font(.title2.bold().monospacedDigit())
-                    .foregroundStyle(colour)
-            }
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 8)
         .accessibilityElement(children: .combine)
+    }
+
+    private func resultChart(_ assessment: DailyTrendAssessment) -> some View {
+        VStack(spacing: 10) {
+            // Keep today's change visible after the temporary confirmation disappears.
+            if let change = assessment.changeKilograms {
+                Text(viewModel.unit.formatted(kilograms: change, signed: true))
+                    .font(.title2.bold().monospacedDigit())
+                    .foregroundStyle(assessment.verdict == .positive
+                        ? themeManager.palette.success : themeManager.palette.error)
+                    .accessibilityLabel("Change since previous check-in")
+                    .accessibilityValue(viewModel.unit.formatted(kilograms: change, signed: true))
+            }
+
+            // The chart defines the layout throughout, so revealing it never moves the rows below.
+            progressCard
+                .accessibilityHidden(showsCheckInConfirmation)
+                .overlay {
+                    if showsCheckInConfirmation {
+                        themeManager.palette.background
+                            .overlay { verdict(assessment) }
+                            .padding(.horizontal, -20)
+                            .transition(.opacity)
+                            .task {
+                                do {
+                                    try await Task.sleep(for: .seconds(1))
+                                } catch {
+                                    showsCheckInConfirmation = false
+                                    return
+                                }
+                                withAnimation(.easeOut(duration: reduceMotion ? 0.15 : 0.5)) {
+                                    showsCheckInConfirmation = false
+                                }
+                            }
+                    }
+                }
+        }
     }
 
     private var progressCard: some View {
@@ -452,6 +481,7 @@ struct TodayView: View {
             }
             try? await Task.sleep(for: .milliseconds(420))
             guard !Task.isCancelled else { return }
+            showsCheckInConfirmation = true
             withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
                 showsResult = true
             }
@@ -460,6 +490,7 @@ struct TodayView: View {
 
     private func beginAnotherCheckIn() {
         viewModel.beginAnotherCheckIn()
+        showsCheckInConfirmation = false
         entryCardOffset = 80
         entryCardOpacity = 0
         showsResult = false
@@ -472,9 +503,10 @@ struct TodayView: View {
     }
 
     private func focusWeightField() async {
-        guard !showsResult else { return }
+        weightIsFocused = false
+        guard !showsResult, viewModel.loadState == .ready, viewModel.inputStyle == .keyboard else { return }
         try? await Task.sleep(for: .milliseconds(250))
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, !showsResult, viewModel.inputStyle == .keyboard else { return }
         weightIsFocused = true
     }
 }

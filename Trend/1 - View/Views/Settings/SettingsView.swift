@@ -43,6 +43,16 @@ struct SettingsView: View {
                         .disabled(!viewModel.canSaveGoal)
                     }
                 }
+                Section("Weight entry") {
+                    Picker("Input style", selection: $viewModel.weightInputStyle) {
+                        ForEach(WeightInputStyle.allCases) { style in
+                            Text(style.title).tag(style)
+                        }
+                    }
+                    Text("Weight wheels start at your last recorded weight. Scroll the whole number or decimal, then press + to record your measurement.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 Section("Your data") {
                     NavigationLink {
                         HistoryView()
@@ -54,15 +64,16 @@ struct SettingsView: View {
                     } label: {
                         Label("Habit history", systemImage: "scope")
                     }
-                    LabeledContent("iCloud", value: viewModel.cloudStatus.label)
-                    Button("Export backup", systemImage: "square.and.arrow.up") {
+                    NavigationLink("Backups and recovery") { BackupsView() }
+                    LabeledContent("iCloud Drive", value: viewModel.cloudStatus.label)
+                    Button("Export weight history", systemImage: "square.and.arrow.up") {
                         Task { await viewModel.prepareExport() }
                     }
-                    Button("Import backup", systemImage: "square.and.arrow.down") { viewModel.isImporting = true }
-                    Button("Delete all data", systemImage: "trash", role: .destructive) { viewModel.confirmDelete = true }
+                    Button("Import weight history", systemImage: "square.and.arrow.down") { viewModel.isImporting = true }
+                    Button("Delete weight history", systemImage: "trash", role: .destructive) { viewModel.confirmDelete = true }
                 }
                 Section("About") {
-                    LabeledContent("Privacy", value: "Device + private iCloud")
+                    LabeledContent("Storage", value: "On-device + iCloud backups")
                     LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")
                 }
             }
@@ -75,7 +86,7 @@ struct SettingsView: View {
             .fileImporter(isPresented: $viewModel.isImporting, allowedContentTypes: [.json]) { result in
                 Task { await viewModel.importFile(result) }
             }
-            .alert("Delete all data?", isPresented: $viewModel.confirmDelete) {
+            .alert("Delete weight history?", isPresented: $viewModel.confirmDelete) {
                 Button("Delete", role: .destructive) { Task { await viewModel.deleteAllData() } }
                 Button("Cancel", role: .cancel) {}
             } message: {

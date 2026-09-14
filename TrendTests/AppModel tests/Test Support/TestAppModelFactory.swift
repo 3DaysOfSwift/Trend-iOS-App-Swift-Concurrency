@@ -47,7 +47,9 @@ enum TestAppModelFactory {
             ),
             habitsFeature: HabitsManager(storage: InMemoryHabitDataStore(), currentDate: currentDate),
             purchaseFeature: PurchaseManager(client: purchaseClient),
-            dailyTips: dailyTips
+            dailyTips: dailyTips,
+            backupFeature: BackupManager(storage: LocalDataStore(directory: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)),
+                files: RecoveryBackupFiles(folder: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString), cloudFolder: { nil }), settings: settings, reload: {})
         )
     }
 }

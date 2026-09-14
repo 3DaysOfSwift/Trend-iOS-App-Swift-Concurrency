@@ -9,8 +9,6 @@ final class HabitsManager {
     private let worker: HabitsWorker
     private let calendar: Calendar
     private let currentDate: @MainActor () -> Date
-    @ObservationIgnored private var synchronizationTask: Task<Void, Never>?
-    @ObservationIgnored private var synchronizationRequested = false
     @ObservationIgnored private var loadingTask: Task<Void, Never>?
     @ObservationIgnored private var operationInProgress = false
     @ObservationIgnored private var waitingOperations: [CheckedContinuation<Void, Never>] = []
@@ -28,6 +26,15 @@ final class HabitsManager {
 
     // Observation dependency: `habitData`
     var enabledHabits: [Habit] { habitData.enabledHabits }
+    var availableHabits: [Habit] { Habit.availableHabits + habitData.customHabits }
+    var activeHabits: [Habit] {
+        let selected = Set(enabledHabits.map(\.id))
+        return availableHabits.filter { selected.contains($0.id) }
+    }
+
+    func habit(for entry: HabitEntry) -> Habit {
+        habitData.customHabits.first { $0.id == entry.habitID } ?? Habit(type: entry.habitType)
+    }
     
     // Observation dependency: `habitData`
     var entries: [HabitEntry] { habitData.entries }
@@ -38,9 +45,8 @@ final class HabitsManager {
     var lifetimeSummaries: [String: HabitLifetimeSummary] { habitData.lifetimeSummaries }
 
     private(set) var errorMessage: String?
-    private(set) var synchronizationError: String?
 
-    init(storage: any HabitCloudSynchronizing, calendar: Calendar = .current,
+    init(storage: any HabitDataStore, calendar: Calendar = .current,
          currentDate: @escaping @MainActor () -> Date) {
         worker = HabitsWorker(storage: storage, calendar: calendar)
         self.calendar = calendar
@@ -81,39 +87,7 @@ final class HabitsManager {
         }
     }
     
-    func synchronize() async {
-        await load()
-        guard loadState == .ready else { return }
-        if let synchronizationTask {
-            await synchronizationTask.value
-            return
-        }
-        await requestCloudSynchronization().value
-    }
-
-    @discardableResult
-    private func requestCloudSynchronization() -> Task<Void, Never> {
-        synchronizationRequested = true
-        if let synchronizationTask { return synchronizationTask }
-        let task = Task {
-            defer { synchronizationTask = nil }
-            repeat {
-                synchronizationRequested = false
-                do {
-                    // Do not hold the local queue while waiting for iCloud.
-                    try await worker.synchronize()
-                    synchronizationError = nil
-                    await loadLocalData()
-                } catch {
-                    // Local saves still succeeded. The next synchronization or edit retries iCloud.
-                    synchronizationError = error.localizedDescription
-                    return
-                }
-            } while synchronizationRequested
-        }
-        synchronizationTask = task
-        return task
-    }
+    func reload() async { await loadLocalData() }
 
     // Observation dependency: `habitData`
     func entry(for habitID: String, on date: Date) -> HabitEntry? {
@@ -178,15 +152,28 @@ final class HabitsManager {
 
 extension HabitsManager {
     @discardableResult
-    func enableSelectedHabits(_ habitIDs: Set<String>) async throws -> [Habit] {
+    func enableSelectedHabits(_ habitIDs: Set<String>, customNames: [String] = []) async throws -> [Habit] {
+        await load()
         await waitForPreviousOperation()
         defer { finishOperation() }
         try Task.checkCancellation()
+        guard loadState == .ready else { throw HabitError.notLoaded }
         
-        let result = try await worker.selectHabits(habitIDs, habitData: habitData, today: currentDate())
+        let result = try await worker.selectHabits(habitIDs, habitData: habitData, today: currentDate(), customNames: customNames)
         publishSuccessfulResult(result)
-        requestCloudSynchronization()
         return enabledHabits
+    }
+
+    func recordDailyValue(_ value: Double, for habitID: String, distanceUnit: RunningDistanceUnit = .kilometres) async throws {
+        await load()
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        guard loadState == .ready else { throw HabitError.notLoaded }
+        let canonicalValue = habitID == Habit.HabitType.runningDistance.rawValue
+            ? (distanceUnit.kilometres(from: value) * 10).rounded() / 10 : value
+        let result = try await worker.recordDailyValue(canonicalValue, habitID: habitID, habitData: habitData, today: currentDate())
+        publishSuccessfulResult(result)
     }
 
     @discardableResult
@@ -198,7 +185,6 @@ extension HabitsManager {
         
         let result = try await worker.recordCoffee(on: date, habitData: habitData, today: currentDate())
         publishSuccessfulResult(result.habitData)
-        requestCloudSynchronization()
         return result.entry
     }
 
@@ -211,7 +197,6 @@ extension HabitsManager {
         
         let result = try await worker.recordGymRepetitions(repetitions, on: date, habitData: habitData, today: currentDate())
         publishSuccessfulResult(result.habitData)
-        requestCloudSynchronization()
         return result.entry
     }
 
@@ -224,7 +209,6 @@ extension HabitsManager {
         
         let result = try await worker.recordRun(kilometres: kilometres, on: date, habitData: habitData, today: currentDate())
         publishSuccessfulResult(result.habitData)
-        requestCloudSynchronization()
         return result.entry
     }
 
@@ -237,7 +221,6 @@ extension HabitsManager {
         
         let result = try await worker.recordSleep(hours: hours, on: date, habitData: habitData, today: currentDate())
         publishSuccessfulResult(result.habitData)
-        requestCloudSynchronization()
         return result.entry
     }
 
@@ -250,7 +233,6 @@ extension HabitsManager {
         
         let result = try await worker.recordWakeTime(minutesAfterMidnight: minutesAfterMidnight, on: date, habitData: habitData, today: currentDate())
         publishSuccessfulResult(result.habitData)
-        requestCloudSynchronization()
         return result.entry
     }
 
@@ -263,7 +245,6 @@ extension HabitsManager {
         
         let result = try await worker.recordGlassOfWater(on: date, habitData: habitData, today: currentDate())
         publishSuccessfulResult(result.habitData)
-        requestCloudSynchronization()
         return result.entry
     }
 
@@ -276,7 +257,6 @@ extension HabitsManager {
         
         let result = try await worker.recordAlcoholicDrink(on: date, habitData: habitData, today: currentDate())
         publishSuccessfulResult(result.habitData)
-        requestCloudSynchronization()
         return result.entry
     }
 
@@ -289,7 +269,6 @@ extension HabitsManager {
         
         let result = try await worker.removeCoffee(on: date, habitData: habitData, today: currentDate())
         publishSuccessfulResult(result.habitData)
-        requestCloudSynchronization()
         return result.entry
     }
 
@@ -301,16 +280,19 @@ extension HabitsManager {
         
         let result = try await worker.clearGymRepetitions(on: date, habitData: habitData, today: currentDate())
         publishSuccessfulResult(result)
-        requestCloudSynchronization()
     }
 }
 
 enum HabitError: LocalizedError {
     case invalidValue
+    case invalidHabitName
+    case notLoaded
 
     var errorDescription: String? {
         switch self {
         case .invalidValue: "Enter a valid value before saving."
+        case .invalidHabitName: "Give your habit a name between 1 and 60 characters."
+        case .notLoaded: "Your habits haven’t loaded yet. Please try again."
         }
     }
 }

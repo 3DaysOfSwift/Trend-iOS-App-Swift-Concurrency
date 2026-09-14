@@ -37,18 +37,47 @@ Trend/
 └── Trend.xcodeproj/
 ```
 
-## iCloud sync
+## SwiftData, iCloud synchronization and recovery backups
 
-`CloudKitWeightRepository` stores the weight store in the signed-in user's private CloudKit database. `FileWeightRepository` remains its durable offline cache. A local save completes first, and a pending-upload marker ensures an interrupted CloudKit write is retried on the next launch. If iCloud is unavailable, the app remains usable on that device.
+Trend saves records with SwiftData behind its repository boundary. Apple's
+CloudKit integration synchronizes those records, including edits and deletions,
+with the user's private iCloud database. Habit preference writes remain separate
+from recording entries. No SwiftData objects or contexts escape into the UI.
 
-The app has no public records, custom user accounts, analytics, or advertising SDKs. Settings reports whether the current device can access iCloud.
+Separately, launch, foreground entry and successful edits call
+`triggerDataBackupIfNeeded()`. Changed data produces an automatic JSON recovery
+snapshot at most once every 24 hours while the app is used. Back up now bypasses
+that interval. Latest, Previous and retained weekly snapshots are copied to
+iCloud Drive → Trend → Backups, in a separate folder for each installation.
+CloudKit sync is independent of this backup schedule; recovery files can lag
+recent edits by a day. Weekly snapshots are not automatically pruned.
+
+Settings → Backups and recovery shows status and offers explicit restore through
+Files, with a date/count preview and confirmation. Restore changes synchronize
+too. A local pre-restore snapshot is preserved. A replacement phone cannot
+overwrite another installation's recovery files while downloading its history.
 
 ### One-time Apple configuration
 
-1. In Xcode, open **Signing & Capabilities** for the Trend target and confirm the team, bundle identifier, and **iCloud → CloudKit** capability.
-2. Allow Xcode to create or attach `iCloud.com.mattharding.Trend`, or configure the explicit App ID in Certificates, Identifiers & Profiles.
-3. Run a development build on a device signed into iCloud and save an entry to create the development schema.
-4. Before TestFlight or App Store distribution, verify the schema in CloudKit Console and deploy it to Production.
+1. Keep the existing bundle identifier, `com.3DaysOfSwiftConcurrency.Trend`.
+2. Create/enable the **CloudKit** container
+   `iCloud.com.3DaysOfSwiftConcurrency.Trend.SwiftData` for this app. A new
+   container avoids reusing the old hand-written CloudKit schema.
+3. Keep **iCloud Documents** enabled for
+   `iCloud.com.3DaysOfSwiftConcurrency.Trend`. Its Documents folder appears as
+   **Trend** in Files. Refresh provisioning for both capabilities; remote
+   notifications are configured in the app's Info.plist.
+4. Verify a signed-device upload and restore using
+   [the acceptance checklist](Documentation/BACKUP_VERIFICATION.md).
+
+Initialize and deploy the SwiftData-managed CloudKit schema before distributing
+through TestFlight or the App Store, following
+[Apple's setup guide](https://developer.apple.com/documentation/swiftdata/syncing-model-data-across-a-persons-devices).
+Pre-SwiftData development stores are not imported. There is no direct SQLite
+code or compatibility bridge. Existing SwiftData records continue to load normally.
+Recovery files include the producing app version, build number and a separate
+backup-format version. The format determines how to decode the data; app metadata
+identifies the build that produced it.
 
 ## Running
 

@@ -3,18 +3,22 @@
 import Foundation
 @testable import Trend
 
-actor InMemoryHabitDataStore: HabitCloudSynchronizing {
+actor InMemoryHabitDataStore: HabitDataStore {
     private var data: HabitData
 
     init(data: HabitData = HabitData(enabledHabits: [], entries: [])) {
         self.data = data
     }
 
-    func synchronize() async throws {}
+    func savePreferences(selected: [Habit], custom: [Habit]) async throws -> HabitData {
+        self.data.enabledHabits = selected
+        self.data.customHabits = custom
+        return self.data
+    }
 
     func load() async throws -> HabitData { data }
-    func save(_ data: HabitData, replacing previous: HabitData) async throws -> HabitData {
-        self.data = data
-        return data
+    func saveEntries(_ entries: [HabitEntry]) async throws -> HabitData {
+        self.data.entries = entries
+        return self.data
     }
 }

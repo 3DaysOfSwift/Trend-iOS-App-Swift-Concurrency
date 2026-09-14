@@ -2,9 +2,6 @@
 
 protocol HabitDataStore: Sendable {
     func load() async throws -> HabitData
-    func save(_ data: HabitData, replacing previous: HabitData) async throws -> HabitData
-}
-
-protocol HabitCloudSynchronizing: HabitDataStore {
-    func synchronize() async throws
+    func saveEntries(_ entries: [HabitEntry]) async throws -> HabitData
+    func savePreferences(selected: [Habit], custom: [Habit]) async throws -> HabitData
 }

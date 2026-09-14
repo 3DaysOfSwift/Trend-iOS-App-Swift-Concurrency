@@ -3,10 +3,10 @@
 import Foundation
 
 actor HabitsWorker {
-    private let storage: any HabitCloudSynchronizing
+    private let storage: any HabitDataStore
     private let calendar: Calendar
 
-    init(storage: any HabitCloudSynchronizing, calendar: Calendar) {
+    init(storage: any HabitDataStore, calendar: Calendar) {
         self.storage = storage
         self.calendar = calendar
     }
@@ -18,14 +18,16 @@ actor HabitsWorker {
         return calculateSummaries(habitData, on: today)
     }
 
-    func synchronize() async throws {
-        try await storage.synchronize()
-    }
 
-    func selectHabits(_ ids: Set<String>, habitData: HabitData, today: Date) async throws -> HabitData {
+    func selectHabits(_ ids: Set<String>, habitData: HabitData, today: Date, customNames: [String] = []) async throws -> HabitData {
         var updated = habitData
-        updated.enabledHabits = ids.compactMap { Habit(id: $0) }
-        let saved = try await storage.save(updated, replacing: habitData)
+        let names = customNames.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard names.allSatisfy({ !$0.isEmpty && $0.count <= 60 }) else { throw HabitError.invalidHabitName }
+        let added = names.map { Habit(customName: $0) }
+        updated.customHabits += added
+        let catalog = Habit.allHabits.filter { $0.type != .custom } + habitData.customHabits
+        updated.enabledHabits = catalog.filter { ids.contains($0.id) } + added
+        let saved = try await storage.savePreferences(selected: updated.enabledHabits, custom: updated.customHabits)
         return calculateSummaries(saved, on: today)
     }
 
@@ -80,7 +82,7 @@ actor HabitsWorker {
         }
         var updated = habitData
         updated.entries.removeAll { $0.id == existing.id }
-        let saved = try await storage.save(updated, replacing: habitData)
+        let saved = try await storage.saveEntries(updated.entries)
         return (nil, calculateSummaries(saved, on: today))
     }
 
@@ -89,7 +91,7 @@ actor HabitsWorker {
         updated.entries.removeAll {
             $0.habitType == .gymRepetitions && calendar.isDate($0.date, inSameDayAs: date)
         }
-        let saved = try await storage.save(updated, replacing: habitData)
+        let saved = try await storage.saveEntries(updated.entries)
         return calculateSummaries(saved, on: today)
     }
 
@@ -111,8 +113,32 @@ actor HabitsWorker {
         updated.entries.removeAll { $0.habitType == type && calendar.isDate($0.date, inSameDayAs: date) }
         updated.entries.append(recordedEntry)
         updated.entries.sort { $0.date > $1.date }
-        let saved = try await storage.save(updated, replacing: habitData)
+        let saved = try await storage.saveEntries(updated.entries)
         return (recordedEntry, calculateSummaries(saved, on: today))
+    }
+
+    // Quick check-ins replace a daily answer, or add a measured occurrence.
+    // The manager serializes this complete read-modify-save operation.
+    func recordDailyValue(_ value: Double, habitID: String, habitData: HabitData, today: Date) async throws -> HabitData {
+        guard let habit = habitData.enabledHabits.first(where: { $0.id == habitID }),
+              habit.type != .coffee, habit.type != .alcohol,
+              habit.recordingPolicy.accepts(value) else { throw HabitError.invalidValue }
+        let existing = habitData.entries.first {
+            $0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: today)
+        }
+        let adds = [.water, .gymRepetitions, .exerciseSets, .runningDistance].contains(habit.type)
+        let total = adds ? (existing?.value ?? 0) + value : value
+        guard total.isFinite else { throw HabitError.invalidValue }
+        if !habit.recordingPolicy.accumulatesOccurrences, !habit.recordingPolicy.accepts(total) {
+            throw HabitError.invalidValue
+        }
+        let entry = HabitEntry(id: UUID(), habitType: habit.type, date: today, value: total,
+            occurrenceCount: habit.type == .runningDistance ? (existing?.occurrenceCount ?? 0) + 1 : nil,
+            customHabitID: habit.type == .custom ? habit.id : nil)
+        var updated = habitData
+        updated.entries.removeAll { $0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: today) }
+        updated.entries.insert(entry, at: 0)
+        return calculateSummaries(try await storage.saveEntries(updated.entries), on: today)
     }
 
     private func entry(in entries: [HabitEntry], for type: Habit.HabitType, on date: Date) -> HabitEntry? {
@@ -122,10 +148,10 @@ actor HabitsWorker {
     func calculateSummaries(_ habitData: HabitData, on today: Date) -> HabitData {
         var entriesByDay: [String: [Date: HabitEntry]] = [:]
         var lifetimeSummaries: [String: HabitLifetimeSummary] = [:]
-        let grouped = Dictionary(grouping: habitData.entries, by: \.habitType)
+        let grouped = Dictionary(grouping: habitData.entries, by: \.habitID)
         var weeks: [String: HabitWeekSummary] = [:]
-        for habit in Habit.allHabits {
-            let entries = grouped[habit.type] ?? []
+        for habit in Habit.allHabits.filter({ $0.type != .custom }) + habitData.customHabits {
+            let entries = grouped[habit.id] ?? []
             var days: [Date: HabitEntry] = [:]
             for entry in entries where days[calendar.startOfDay(for: entry.date)] == nil {
                 days[calendar.startOfDay(for: entry.date)] = entry

@@ -11,13 +11,20 @@ final class HabitLibraryViewModel {
     var selection: Set<String>
     var errorMessage: String?
     var isSaving = false
+    var customName = ""
+    var customNames: [String] = []
 
     init(habitsFeature: HabitsManager = AppModel.shared.habitsFeature) {
         self.habitsFeature = habitsFeature
         selection = Set(habitsFeature.enabledHabits.map(\.id))
     }
 
-    var habits: [Habit] = Habit.allHabits
+    var habits: [Habit] { habitsFeature.availableHabits }
+
+    func addCustomDraft() {
+        customNames.append(customName)
+        customName = ""
+    }
 
     func toggle(_ habit: Habit) {
         if selection.contains(habit.id) {
@@ -28,10 +35,13 @@ final class HabitLibraryViewModel {
     }
 
     func save() async -> Bool {
+        guard !isSaving else { return false }
         isSaving = true
         defer { isSaving = false }
         do {
-            try await habitsFeature.enableSelectedHabits(selection)
+            let names = customName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? customNames : customNames + [customName]
+            try await habitsFeature.enableSelectedHabits(selection, customNames: names)
             return true
         } catch {
             errorMessage = error.localizedDescription

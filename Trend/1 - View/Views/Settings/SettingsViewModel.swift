@@ -28,6 +28,10 @@ final class SettingsViewModel {
         }
     }
     var cloudStatus: CloudSyncStatus { settings.cloudSyncStatus }
+    var weightInputStyle: WeightInputStyle {
+        get { settings.weightInputStyle }
+        set { settings.setWeightInputStyle(newValue) }
+    }
     var canSaveGoal: Bool {
         settings.canSetGoal(from: goalText)
     }

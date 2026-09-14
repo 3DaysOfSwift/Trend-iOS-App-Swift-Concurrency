@@ -12,7 +12,7 @@ enum CloudSyncStatus: Equatable, Sendable {
     var label: String {
         switch self {
         case .checking: "Checking…"
-        case .available: "Syncing"
+        case .available: "iCloud Drive available"
         case .unavailable: "Sign in to iCloud"
         case .restricted: "Restricted"
         case .temporarilyUnavailable: "Available when online"
@@ -23,4 +23,3 @@ enum CloudSyncStatus: Equatable, Sendable {
 protocol CloudSyncStatusProviding: Sendable {
     func cloudStatus() async -> CloudSyncStatus
 }
-

@@ -27,16 +27,7 @@ struct HabitsView: View {
                 }
             }
             .background(themeManager.palette.background)
-            .navigationTitle("Habits")
-            .toolbar {
-                if !showsPurchaseJourney, !viewModel.habits.isEmpty {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("Choose habits", systemImage: "slider.horizontal.3") {
-                            viewModel.isChoosingHabits = true
-                        }
-                    }
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
         }
         .sheet(isPresented: $viewModel.isChoosingHabits) {
             HabitLibraryView()
@@ -69,18 +60,16 @@ struct HabitsView: View {
                 }
                 .frame(width: 144, height: 144)
 
-                VStack(spacing: 10) {
-                    Text(viewModel.productName)
-                        .font(.largeTitle.bold())
-                    Text("Make every set count. Record your repetitions and watch consistency become visible.")
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
+                Text(viewModel.unlockTitle)
+                    .font(.largeTitle.bold())
+                    .multilineTextAlignment(.center)
 
                 VStack(alignment: .leading, spacing: 16) {
                     benefit("Track your reps in the gym", symbol: "dumbbell.fill")
-                    benefit("Coffee and water trackers included", symbol: "gift.fill")
-                    benefit("See your consistency over time", symbol: "chart.xyaxis.line")
+                    benefit("Daily check-ins on your Today screen", symbol: "sun.max.fill")
+                    benefit("Track morning mood, water drank and your own custom habits", symbol: "gift.fill")
+                    benefit("Track your consistency over time", symbol: "chart.xyaxis.line")
+                    benefit("See trends in your habits", symbol: "chart.line.uptrend.xyaxis")
                     benefit("Pay once—no subscription", symbol: "infinity")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -176,57 +165,11 @@ struct HabitsView: View {
     private var habitList: some View {
         ScrollView {
             LazyVStack(spacing: 16) {
-                Text("Small observations become visible direction.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                ForEach(viewModel.habits) { habit in
-                    NavigationLink { destination(for: habit) } label: { habitCard(habit) }
-                        .buttonStyle(.plain)
-                }
+                DailyHabitsView()
             }
             .padding(16)
             .padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.interactively)
-    }
-
-    private func habitCard(_ habit: Habit) -> some View {
-        HStack(spacing: 16) {
-            ZStack {
-                Circle().fill(themeManager.palette.accent.opacity(0.14))
-                Image(systemName: habit.symbol)
-                    .font(.title2)
-                    .foregroundStyle(themeManager.palette.accent)
-            }
-            .frame(width: 54, height: 54)
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text(habit.name).font(.headline)
-                Text(viewModel.todaySummary(for: habit))
-                    .font(.subheadline)
-                    .foregroundStyle(viewModel.hasCheckedIn(habit) ? themeManager.palette.success : .secondary)
-            }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.subheadline.bold())
-                .foregroundStyle(.tertiary)
-        }
-        .padding(20)
-        .background(themeManager.palette.surface, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-    }
-
-    @ViewBuilder
-    private func destination(for habit: Habit) -> some View {
-        switch habit.type {
-        case .coffee: CoffeeTrackingView()
-        case .wakeTime: WakeTimeTrackingView()
-        case .gymRepetitions: GymTrackingView()
-        case .runningDistance: RunningTrackingView()
-        case .sleep: SleepTrackingView()
-        case .water: WaterTrackingView()
-        case .alcohol: AlcoholTrackingView()
-        }
     }
 }

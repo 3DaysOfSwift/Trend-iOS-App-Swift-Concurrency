@@ -5,6 +5,7 @@ import Foundation
 struct Habit: Codable, Identifiable, Equatable, Sendable {
     enum HabitType: String, Codable, CaseIterable, Sendable {
         case coffee, wakeTime, gymRepetitions, runningDistance, sleep, water, alcohol
+        case morningMood, gymAttendance, exerciseSets, sauna, custom
     }
 
     let type: HabitType
@@ -18,6 +19,27 @@ struct Habit: Codable, Identifiable, Equatable, Sendable {
     let recordingPolicy: HabitRecordingPolicy
 
     static let allHabits: [Habit] = HabitType.allCases.map { Habit(type: $0) }
+
+    // Retired types remain readable in history, but aren't offered as new habits.
+    static let availableHabits: [Habit] = [HabitType.morningMood, .gymAttendance,
+        .gymRepetitions, .exerciseSets, .runningDistance, .water, .sleep, .wakeTime, .sauna]
+        .map { Habit(type: $0) }
+
+    var isDailyAnswer: Bool {
+        type == .gymAttendance || type == .sauna || type == .custom
+    }
+
+    init(customName: String, id: String = UUID().uuidString) {
+        type = .custom
+        self.id = id
+        name = customName
+        prompt = "Did you do this today?"
+        unit = ""
+        valueType = .number
+        desiredDirection = .personalTarget
+        symbol = "checkmark.seal.fill"
+        recordingPolicy = .init(defaultValue: 1, range: 0...1, step: 1, accumulatesOccurrences: false)
+    }
 
     init?(id: String) {
         guard let type = HabitType(rawValue: id) else { return nil }
@@ -85,6 +107,55 @@ struct Habit: Codable, Identifiable, Equatable, Sendable {
             desiredDirection = .lower
             symbol = "wineglass.fill"
             recordingPolicy = .init(defaultValue: 1, range: 0...99, step: 1, accumulatesOccurrences: false)
+        case .morningMood:
+            name = "Morning mood"
+            prompt = "How did you feel when you woke up?"
+            unit = ""
+            valueType = .rating
+            desiredDirection = .personalTarget
+            symbol = "face.smiling"
+            recordingPolicy = .init(defaultValue: 3, range: 1...5, step: 1, accumulatesOccurrences: false)
+        case .gymAttendance, .sauna, .custom:
+            name = type == .gymAttendance ? "Gym visit" : type == .sauna ? "Sauna" : "Custom habit"
+            prompt = "Did you do this today?"
+            unit = ""
+            valueType = .number
+            desiredDirection = .personalTarget
+            symbol = type == .gymAttendance ? "figure.strengthtraining.traditional" : type == .sauna ? "water.waves" : "checkmark.seal.fill"
+            recordingPolicy = .init(defaultValue: 1, range: 0...1, step: 1, accumulatesOccurrences: false)
+        case .exerciseSets:
+            name = "Exercise sets"
+            prompt = "How many sets in your workout?"
+            unit = "sets"
+            valueType = .number
+            desiredDirection = .personalTarget
+            symbol = "dumbbell.fill"
+            recordingPolicy = .init(defaultValue: 1, range: 1...200, step: 1, accumulatesOccurrences: false)
+        }
+    }
+}
+
+// These are descriptions, not scores or a claim that one emotion is healthier.
+enum MorningMood: Int, CaseIterable, Sendable {
+    case sluggish = 1, tired, average, happy, energetic
+
+    var emoji: String {
+        switch self {
+        case .sluggish: "🥱"
+        case .tired: "😴"
+        case .average: "😐"
+        case .happy: "😊"
+        case .energetic: "🤩"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .sluggish: "Sluggish"
+        case .tired: "Tired"
+        case .average: "Average"
+        case .happy: "Happy"
+        case .energetic: "Energetic"
         }
     }
 }

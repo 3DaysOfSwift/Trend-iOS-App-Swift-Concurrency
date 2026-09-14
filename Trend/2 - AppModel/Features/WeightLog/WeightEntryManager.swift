@@ -49,6 +49,25 @@ final class WeightEntryManager {
     var goalWeightKilograms: Double? { weightLog.goalKilograms }
     var dailyStreakSnapshot: DailyStreakSnapshot { dailyStreak.snapshot }
     var selectedWeightUnit: WeightUnit { settings.unit }
+    var weightInputStyle: WeightInputStyle { settings.weightInputStyle }
+    func setWeightInputStyle(_ style: WeightInputStyle) { settings.weightInputStyle = style }
+
+    /// A new check-in suggests the latest measurement, never an assumed loss.
+    /// Its date is today and its note is empty, not copied from the old entry.
+    func makeDailyWeightDraft() -> WeightEntryDraft {
+        var draft = makeWeightEntryDraft(editing: nil)
+        if let latest = weightLog.latestEntry {
+            draft.value = settings.unit.value(fromKilograms: latest.kilograms)
+                .formatted(.number.grouping(.never).precision(.fractionLength(1)))
+        }
+        return draft
+    }
+
+    func convertWeightInput(_ text: String, from unit: WeightUnit) -> String {
+        guard let kilograms = try? unit.kilograms(from: text) else { return "" }
+        return settings.unit.value(fromKilograms: kilograms)
+            .formatted(.number.grouping(.never).precision(.fractionLength(1)))
+    }
     var latestPermittedEntryDate: Date { currentDate() }
     var weightLogState: WeightLogState { weightLog.state }
     var entries: [WeightEntry] { weightLog.entries }
@@ -59,7 +78,7 @@ final class WeightEntryManager {
             date: entry?.date ?? currentDate(),
             value: entry.map {
                 unit.value(fromKilograms: $0.kilograms)
-                    .formatted(.number.precision(.fractionLength(1)))
+                    .formatted(.number.grouping(.never).precision(.fractionLength(1)))
             } ?? "",
             note: entry?.note ?? ""
         )

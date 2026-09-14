@@ -7,6 +7,8 @@ import Observation
 @Observable
 final class TodayViewModel {
     private let today: WeightEntryManager
+    private var hasPreparedInput = false
+    private var inputUnit: WeightUnit
 
     var draft: WeightEntryDraft
     var errorMessage: String?
@@ -15,7 +17,9 @@ final class TodayViewModel {
 
     init(today: WeightEntryManager = AppModel.shared.weightEntries) {
         self.today = today
-        draft = today.makeWeightEntryDraft(editing: nil)
+        draft = today.makeDailyWeightDraft()
+        inputUnit = today.selectedWeightUnit
+        hasPreparedInput = today.weightLogState == .ready
     }
 
     var latestEntry: WeightEntry? { today.latestWeightEntry }
@@ -25,6 +29,22 @@ final class TodayViewModel {
     var goalKilograms: Double? { today.goalWeightKilograms }
     var streakSnapshot: DailyStreakSnapshot { today.dailyStreakSnapshot }
     var unit: WeightUnit { today.selectedWeightUnit }
+    var inputStyle: WeightInputStyle { today.weightInputStyle }
+    func useKeyboard() { today.setWeightInputStyle(.keyboard) }
+
+    func prepareWeightInput() {
+        guard loadState == .ready, !hasPreparedInput else { return }
+        if draft.value.isEmpty {
+            draft.value = today.makeDailyWeightDraft().value
+        }
+        hasPreparedInput = true
+    }
+
+    func updateInputUnit() {
+        guard inputUnit != unit else { return }
+        draft.value = today.convertWeightInput(draft.value, from: inputUnit)
+        inputUnit = unit
+    }
     var latestPermittedEntryDate: Date { today.latestPermittedEntryDate }
     var canSave: Bool { loadState == .ready && !draft.value.isEmpty && !isSaving }
 
@@ -48,7 +68,9 @@ final class TodayViewModel {
     }
 
     func beginAnotherCheckIn() {
-        draft = today.makeWeightEntryDraft(editing: nil)
+        draft = today.makeDailyWeightDraft()
+        inputUnit = unit
+        hasPreparedInput = loadState == .ready
         submittedResult = nil
         errorMessage = nil
     }

@@ -13,11 +13,15 @@ final class UserSettingsStore {
     var unit: WeightUnit {
         didSet { defaults.set(unit.rawValue, forKey: "weightUnit") }
     }
+    var weightInputStyle: WeightInputStyle {
+        didSet { defaults.set(weightInputStyle.rawValue, forKey: "weightInputStyle") }
+    }
 
     init(cloudSync: any CloudSyncStatusProviding, defaults: UserDefaults = .standard) {
         self.cloudSync = cloudSync
         self.defaults = defaults
         unit = WeightUnit(rawValue: defaults.string(forKey: "weightUnit") ?? "") ?? .kilograms
+        weightInputStyle = WeightInputStyle(rawValue: defaults.string(forKey: "weightInputStyle") ?? "") ?? .wheel
     }
 
     func refreshCloudStatus() async { cloudStatus = await cloudSync.cloudStatus() }

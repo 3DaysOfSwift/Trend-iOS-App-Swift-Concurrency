@@ -16,6 +16,7 @@ final class AppModel {
     let settingsFeature: SettingsManager
     let habitsFeature: HabitsManager
     let purchaseFeature: PurchaseManager
+    let backupFeature: BackupManager
     private let dailyTips: DailyTipManager
     private var hasLaunched = false
 
@@ -25,7 +26,8 @@ final class AppModel {
         settingsFeature: SettingsManager,
         habitsFeature: HabitsManager,
         purchaseFeature: PurchaseManager,
-        dailyTips: DailyTipManager
+        dailyTips: DailyTipManager,
+        backupFeature: BackupManager
     ) {
         self.weightEntries = weightEntries
         self.progressFeature = progressFeature
@@ -33,6 +35,7 @@ final class AppModel {
         self.habitsFeature = habitsFeature
         self.purchaseFeature = purchaseFeature
         self.dailyTips = dailyTips
+        self.backupFeature = backupFeature
     }
 
     /// Produces the live, non-test AppModel and assembles all production
@@ -42,16 +45,19 @@ final class AppModel {
         // while allowing tests to provide a fixed clock.
         let currentDate: @MainActor () -> Date = { .now }
 
-        let repository = CloudKitWeightRepository()
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appending(path: "Trend", directoryHint: .isDirectory)
+        let storage = LocalDataStore(directory: directory,
+            cloudContainerIdentifier: "iCloud.com.3DaysOfSwiftConcurrency.Trend.SwiftData")
+        let repository = LocalWeightRepository(storage: storage)
         let weightLog = WeightLogManager(repository: repository)
         let progress = ProgressTracker(currentDate: currentDate)
-        let settings = UserSettingsStore(cloudSync: repository)
+        let settings = UserSettingsStore(cloudSync: ICloudDriveAvailability())
         let dailyTrend = DailyTrendManager()
         let dailyTips = DailyTipManager(currentDate: currentDate)
         let dailyStreak = DailyStreakManager(trend: dailyTrend, currentDate: currentDate)
         let backupFiles = BackupFileManager()
-        let habitDataStore = CloudKitHabitDataStore(
-            cache: FileHabitDataStore(), cloud: CloudKitHabitClient())
+        let habitDataStore = LocalHabitRepository(storage: storage)
         let habits = HabitsManager(
             storage: habitDataStore,
             currentDate: currentDate
@@ -79,13 +85,19 @@ final class AppModel {
             dailyStreak: dailyStreak,
             backupFiles: backupFiles
         )
+        let backups = BackupManager(storage: storage,
+            files: RecoveryBackupFiles(folder: directory.appending(path: "Backups")), settings: settings) {
+                await weightEntries.refresh()
+                await habits.reload()
+            }
         return AppModel(
             weightEntries: weightEntries,
             progressFeature: progressFeature,
             settingsFeature: settingsFeature,
             habitsFeature: habits,
             purchaseFeature: purchases,
-            dailyTips: dailyTips
+            dailyTips: dailyTips,
+            backupFeature: backups
         )
     }
 
@@ -96,6 +108,9 @@ final class AppModel {
 
         purchaseFeature.observeTransactionUpdates()
         dailyTips.refresh()
+        backupFeature.observeLocalChanges()
+        backupFeature.observeCloudChanges()
+        Task { await backupFeature.triggerDataBackupIfNeeded() }
         
         Task { await purchaseFeature.refreshStoreState() }
         Task { await settingsFeature.refreshCloudStatus() }
@@ -105,8 +120,9 @@ final class AppModel {
     
     func applicationDidBecomeActive() {
         Task {
-            await habitsFeature.updateCurrentDay()
-            await habitsFeature.synchronize()
+            await weightEntries.refresh()
+            await habitsFeature.reload()
+            await backupFeature.triggerDataBackupIfNeeded()
         }
     }
 

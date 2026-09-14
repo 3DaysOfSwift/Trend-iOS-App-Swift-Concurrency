@@ -136,6 +136,17 @@
 				TargetAttributes = {
 					A00000000000000000000040 = {
 						CreatedOnToolsVersion = 26.2;
+						SystemCapabilities = {
+							com.apple.BackgroundModes = {
+								enabled = 1;
+							};
+							com.apple.Push = {
+								enabled = 1;
+							};
+							com.apple.iCloud = {
+								enabled = 1;
+							};
+						};
 					};
 					A00000000000000000000041 = {
 						CreatedOnToolsVersion = 26.2;
@@ -217,6 +228,7 @@
 				DEVELOPMENT_TEAM = LW4V9MRNCX;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Configuration/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Trend;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -243,6 +255,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = LW4V9MRNCX;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Configuration/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Trend;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

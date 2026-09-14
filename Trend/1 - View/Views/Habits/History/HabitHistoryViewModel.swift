@@ -15,11 +15,12 @@ final class HabitHistoryViewModel {
     var entries: [HabitEntry] { habitsFeature.entries }
 
     func habit(for entry: HabitEntry) -> Habit {
-        Habit(type: entry.habitType)
+        habitsFeature.habit(for: entry)
     }
 
     func valueDescription(for entry: HabitEntry) -> String {
         let habit = habit(for: entry)
+        if habit.isDailyAnswer { return entry.value == 1 ? "Yes" : "No" }
         switch habit.valueType {
         case .timeOfDay:
             let hour = Int(entry.value) / 60
@@ -27,7 +28,7 @@ final class HabitHistoryViewModel {
             let date = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: entry.date) ?? entry.date
             return date.formatted(date: .omitted, time: .shortened)
         case .rating:
-            return "\(Int(entry.value)) of 5"
+            return MorningMood(rawValue: Int(entry.value)).map { "\($0.emoji) \($0.title)" } ?? "Recorded"
         case .number:
             let value = entry.value.formatted(.number.precision(.fractionLength(0...1)))
             return "\(value) \(habit.unit)"

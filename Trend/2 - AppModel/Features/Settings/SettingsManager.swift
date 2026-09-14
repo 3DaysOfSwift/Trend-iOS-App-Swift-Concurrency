@@ -26,6 +26,8 @@ final class SettingsManager {
     }
 
     var selectedWeightUnit: WeightUnit { settings.unit }
+    var weightInputStyle: WeightInputStyle { settings.weightInputStyle }
+    func setWeightInputStyle(_ style: WeightInputStyle) { settings.weightInputStyle = style }
     var cloudSyncStatus: CloudSyncStatus { settings.cloudStatus }
     var goalWeightKilograms: Double? { weightLog.goalKilograms }
 

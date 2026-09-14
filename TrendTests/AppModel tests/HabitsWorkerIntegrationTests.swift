@@ -132,7 +132,6 @@ struct HabitsWorkerIntegrationTests {
         let manager = HabitsManager(storage: dataStore, currentDate: { date })
         try await manager.enableSelectedHabits([Habit(type: .coffee).id])
         try await manager.recordCoffee()
-        await manager.synchronize()
         let loadsBeforeDayChange = await dataStore.loadCount
         date = date.addingTimeInterval(2 * 86_400)
         await manager.updateCurrentDay()
@@ -173,10 +172,12 @@ struct HabitsWorkerIntegrationTests {
         let date = Date(timeIntervalSince1970: 1_788_480_000)
         let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: { date })
         try await manager.enableSelectedHabits([Habit(type: .coffee).id])
-        let viewModel = CoffeeTrackingViewModel(habitsFeature: manager)
+        let viewModel = DailyHabitsViewModel(habitsFeature: manager,
+            purchaseFeature: PurchaseManager(client: InMemoryPurchaseClient()))
+        let habit = Habit(type: .coffee)
         let changed = OSAllocatedUnfairLock(initialState: false)
         withObservationTracking {
-            _ = viewModel.weekSummary
+            _ = viewModel.week(for: habit)
         } onChange: {
             changed.withLock { $0 = true }
         }
@@ -198,12 +199,12 @@ struct HabitsWorkerIntegrationTests {
         #expect(selectionChanged.withLock { $0 })
         #expect(history.entries.count == 1)
         #expect(changed.withLock { $0 })
-        #expect(viewModel.weekSummary.currentStreak == 1)
-        #expect(viewModel.weeklyTotal == 1)
+        #expect(viewModel.week(for: habit).currentStreak == 1)
+        #expect(viewModel.value(for: habit) == 1)
     }
 }
 
-private actor SuspendedHabitDataStore: HabitCloudSynchronizing {
+private actor SuspendedHabitDataStore: HabitDataStore {
     private var data = HabitData(enabledHabits: [], entries: [])
     private var pauseLoad = false
     private var loadRelease: CheckedContinuation<Void, Never>?
@@ -215,7 +216,18 @@ private actor SuspendedHabitDataStore: HabitCloudSynchronizing {
     private var failSave = false
     private(set) var loadCount = 0
 
-    func synchronize() async throws {}
+    func savePreferences(selected: [Habit], custom: [Habit]) async throws -> HabitData {
+        var candidate = data
+        candidate.enabledHabits = selected
+        candidate.customHabits = custom
+        return try await saveData(candidate)
+    }
+
+    func saveEntries(_ entries: [HabitEntry]) async throws -> HabitData {
+        var candidate = data
+        candidate.entries = entries
+        return try await saveData(candidate)
+    }
 
     func load() async throws -> HabitData {
         loadCount += 1
@@ -234,7 +246,7 @@ private actor SuspendedHabitDataStore: HabitCloudSynchronizing {
         return data
     }
 
-    func save(_ data: HabitData, replacing previous: HabitData) async throws -> HabitData {
+    private func saveData(_ data: HabitData) async throws -> HabitData {
         if pauseSave {
             pauseSave = false
             await withCheckedContinuation { continuation in

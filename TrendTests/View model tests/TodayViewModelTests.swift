@@ -66,7 +66,7 @@ struct TodayViewModelTests {
         #expect(await viewModel.save())
         viewModel.beginAnotherCheckIn()
 
-        #expect(viewModel.draft.value.isEmpty)
+        #expect(viewModel.draft.value == "72.5")
         #expect(viewModel.submittedResult == nil)
     }
 
@@ -80,6 +80,32 @@ struct TodayViewModelTests {
         #expect(viewModel.draft.value == "invalid")
         #expect(viewModel.errorMessage == "Enter a weight between 20 and 500 kg.")
         #expect(!viewModel.isSaving)
+    }
+
+    @Test func loadSeedsLatestWeightWithoutCopyingOldDateOrNote() async {
+        let now = Date(timeIntervalSince1970: 100_000)
+        let previous = WeightEntry(date: now.addingTimeInterval(-86_400), kilograms: 69.7, note: "Yesterday")
+        let app = TestAppModelFactory.make(repository: InMemoryWeightRepository(
+            store: .init(entries: [previous], goalKilograms: nil)), currentDate: { now })
+        let viewModel = TodayViewModel(today: app.weightEntries)
+        await viewModel.refresh()
+        viewModel.prepareWeightInput()
+        #expect(viewModel.draft.value == "69.7")
+        #expect(viewModel.draft.date == now)
+        #expect(viewModel.draft.note.isEmpty)
+        viewModel.draft.value = "69.6"
+        viewModel.prepareWeightInput()
+        #expect(viewModel.draft.value == "69.6")
+        #expect(app.weightEntries.entries.count == 1)
+    }
+
+    @Test func changingUnitsConvertsDraftRatherThanRelabelingItsNumber() async {
+        let app = TestAppModelFactory.make()
+        let viewModel = TodayViewModel(today: app.weightEntries)
+        viewModel.draft.value = "45.359237"
+        app.settingsFeature.setWeightUnit(.pounds)
+        viewModel.updateInputUnit()
+        #expect(viewModel.draft.value == "100.0")
     }
 
     @Test func persistenceFailureKeepsEnteredWeightForRetry() async {

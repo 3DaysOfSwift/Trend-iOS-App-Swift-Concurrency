@@ -85,6 +85,9 @@ enum AppColourTheme: String, CaseIterable, Identifiable {
 }
 
 struct AppThemePalette {
+    // Shared by the streak flame and the action that earns a check-in.
+    var streakAccent: Color { .orange }
+
     let accent: Color
     let chart: Color
     let background: Color

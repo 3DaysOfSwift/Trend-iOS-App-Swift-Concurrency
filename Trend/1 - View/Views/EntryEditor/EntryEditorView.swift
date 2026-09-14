@@ -8,6 +8,7 @@ struct EntryEditorView: View {
     @Environment(ThemeManager.self) private var themeManager
     @FocusState private var weightIsFocused: Bool
     @State private var showsDetails = false
+    @State private var isWeightWheelActive = false
 
     init(entry: WeightEntry? = nil) {
         _viewModel = State(initialValue: EntryEditorViewModel(entry: entry))
@@ -30,6 +31,8 @@ struct EntryEditorView: View {
                     }
                     .scrollDismissesKeyboard(.interactively)
                     .scrollIndicators(.hidden)
+                    .scrollDisabled(isWeightWheelActive)
+                    .onPreferenceChange(WeightWheelInteractionPreferenceKey.self) { isWeightWheelActive = $0 }
                 }
             }
             .background(themeManager.palette.background)
@@ -55,7 +58,9 @@ struct EntryEditorView: View {
             }
         }
         .interactiveDismissDisabled(viewModel.isSaving)
-        .task {
+        .task(id: viewModel.inputStyle) {
+            weightIsFocused = false
+            guard viewModel.inputStyle == .keyboard else { return }
             // Wait for the sheet transition so focus reliably presents the keypad.
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
@@ -73,21 +78,14 @@ struct EntryEditorView: View {
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 4) {
-                TextField(
-                    "0.0",
-                    text: $viewModel.draft.value,
-                    prompt: Text("0.0").foregroundStyle(.white.opacity(0.24))
-                )
-                .keyboardType(.decimalPad)
-                .focused($weightIsFocused)
-                .multilineTextAlignment(.center)
-                .font(.system(size: 112, weight: .medium, design: .rounded).monospacedDigit())
-                .foregroundStyle(.white)
-                .tint(.white)
-                .minimumScaleFactor(0.42)
-                .lineLimit(1)
-                .accessibilityLabel("Current weight")
-                .accessibilityValue(viewModel.draft.value.isEmpty ? "Not entered" : "\(viewModel.draft.value) \(viewModel.unit.symbol)")
+                switch viewModel.inputStyle {
+                case .wheel:
+                    WeightWheelInputView(value: $viewModel.draft.value, unit: viewModel.unit,
+                                         useKeyboard: viewModel.useKeyboard)
+                case .keyboard:
+                    WeightKeyboardInputView(value: $viewModel.draft.value, unit: viewModel.unit,
+                                            isFocused: $weightIsFocused)
+                }
 
                 Text(viewModel.unit.symbol.uppercased())
                     .font(.headline.monospaced())
@@ -114,9 +112,10 @@ struct EntryEditorView: View {
                     .shadow(color: themeManager.palette.accent.opacity(0.26), radius: 24, y: 12)
             }
             .contentShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
-            .onTapGesture { weightIsFocused = true }
+            .onTapGesture { if viewModel.inputStyle == .keyboard { weightIsFocused = true } }
+            .disabled(viewModel.isSaving)
 
-            Text("Use the keypad to enter today’s measurement")
+            Text(viewModel.inputStyle == .wheel ? "Adjust your measurement, then tap Save" : "Use the keypad to enter your measurement")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }

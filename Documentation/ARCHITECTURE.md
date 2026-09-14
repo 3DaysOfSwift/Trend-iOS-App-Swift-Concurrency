@@ -55,6 +55,13 @@ Trend
 │       ├── EntryEditor
 │       │   ├── EntryEditorView.swift
 │       │   └── EntryEditorViewModel.swift
+│       ├── Weight Input
+│       │   ├── Keyboard
+│       │   │   ├── WeightKeyboardInputView.swift
+│       │   │   └── WeightKeyboardInputViewModel.swift
+│       │   └── Wheel
+│       │       ├── WeightWheelInputView.swift
+│       │       └── WeightWheelInputViewModel.swift
 │       ├── Progress
 │       │   ├── ProjectionView.swift
 │       │   └── ProgressViewModel.swift
@@ -69,31 +76,14 @@ Trend
 │           ├── HabitsViewModel.swift
 │           ├── HabitLibraryView.swift
 │           ├── HabitLibraryViewModel.swift
+│           ├── Daily Check-ins
+│           │   ├── DailyHabitsView.swift
+│           │   └── DailyHabitsViewModel.swift
 │           ├── History
 │           │   ├── HabitHistoryView.swift
 │           │   └── HabitHistoryViewModel.swift
-│           └── Tracking
-│               ├── Coffee
-│               │   ├── CoffeeTrackingView.swift
-│               │   └── CoffeeTrackingViewModel.swift
-│               ├── Gym
-│               │   ├── GymTrackingView.swift
-│               │   └── GymTrackingViewModel.swift
-│               ├── Alcohol
-│               │   ├── AlcoholTrackingView.swift
-│               │   └── AlcoholTrackingViewModel.swift
-│               ├── Running
-│               │   ├── RunningTrackingView.swift
-│               │   └── RunningTrackingViewModel.swift
-│               ├── Sleep
-│               │   ├── SleepTrackingView.swift
-│               │   └── SleepTrackingViewModel.swift
-│               ├── Wake Time
-│               │   ├── WakeTimeTrackingView.swift
-│               │   └── WakeTimeTrackingViewModel.swift
-│               └── Water
-│                   ├── WaterTrackingView.swift
-│                   └── WaterTrackingViewModel.swift
+│           └── Purchase
+│               └── PurchaseJourneyView.swift
 ├── 2 - AppModel
 │   ├── AppModel.swift
 │   ├── Features
@@ -102,6 +92,9 @@ Trend
 │   │   ├── Daily Trend
 │   │   ├── Habits
 │   │   ├── Progress
+│   │   ├── Backup
+│   │   │   ├── BackupManager.swift
+│   │   │   └── RecoverySnapshot.swift
 │   │   ├── Purchases
 │   │   ├── Settings
 │   │   └── WeightLog
@@ -110,8 +103,10 @@ Trend
 │   │       └── WeightUnit
 │   └── User Data Storage
 │       ├── Protocols
-│       ├── Local
-│       └── CloudKit
+│       └── Local
+│           ├── LocalDataStore.swift (SwiftData + Apple CloudKit sync)
+│           ├── StoredRecords.swift
+│           └── RecoveryBackupFiles.swift (iCloud Drive recovery files)
 ├── 3 - App Resources
 │   ├── Assets.xcassets
 │   ├── PrivacyInfo.xcprivacy
@@ -195,15 +190,23 @@ Presentation remains local to the presenting View. Today logs new measurements d
 
 ## Example: saving a weight
 
+Today and EntryEditor compose either a keyboard or digit-wheel input view. Each
+input has its own ViewModel for presentation and edits the screen's draft through
+a binding; neither input saves records. Settings persists the preferred input
+style. WeightEntryManager supplies the last-measurement suggestion, unit conversion
+and validation. Switching input controls therefore does not change the save
+workflow. A future camera input can fill the same draft without reimplementing
+weight recording; no camera implementation is included yet.
+
 ```text
 TodayView
   → TodayViewModel.save()
     → WeightEntryManager.checkIn(_:)
       → WeightLogManager.add/update
         → WeightRepository.save
-          → CloudKitWeightRepository
-            ├── FileWeightRepository (offline cache)
-            └── private CloudKit database
+          → LocalWeightRepository
+            → LocalDataStore (explicit SwiftData save; Apple synchronizes records)
+              → change notification → BackupManager → iCloud Drive recovery snapshot
       → ProgressTracker.refresh
 ```
 
@@ -218,11 +221,33 @@ The View decides how saving looks. The ViewModel owns editor state. `WeightEntry
 - `View model tests` contains one intent-focused suite for every ViewModel.
 - `AppModel tests` contains coordination, feature-manager, and domain-calculation suites. Its `Test Support` folder keeps shared testing tools, such as the in-memory repository and AppModel factory, together and clearly separated from the application code.
 
-Every ViewModel has a dedicated suite named after it. Those tests describe presentation behavior at the ViewModel boundary: initial state, derived display data, user intent callbacks, successful workflows, validation, and recoverable failures. The shared `TestAppModelFactory` assembles the real AppModel and feature managers around an `InMemoryWeightRepository`, keeping tests realistic without reaching CloudKit.
+Every ViewModel has a dedicated suite named after it. Those tests describe presentation behavior at the ViewModel boundary: initial state, derived display data, user intent callbacks, successful workflows, validation, and recoverable failures. The shared `TestAppModelFactory` assembles the real AppModel and feature managers around an `InMemoryWeightRepository`, keeping tests realistic without reaching iCloud.
 
-The lower layers retain focused tests for chart preparation, canonical unit persistence, feature coordination, and AppModel construction. Future integration passes can deepen CloudKit conflict resolution and security-scoped file importing; those operating-system boundaries are deliberately kept out of ViewModel unit tests.
+The lower layers retain focused tests for chart preparation, canonical unit persistence, feature coordination, and AppModel construction. Physical-device integration passes verify iCloud backup coordination and security-scoped file importing; those operating-system boundaries are deliberately kept out of ViewModel unit tests.
 
 ### Habits: observable manager and worker actor
+
+Paid members see `DailyHabitsView` on Today and at the top of Habits. Each
+instance owns its own `DailyHabitsViewModel`; both observe the same manager.
+The panel provides morning mood, daily yes/no answers, and numerical quick
+entries without requiring navigation. The previous separate tracking screens
+have been removed. Habit History in Settings remains read-only; it is not an
+editing screen. Purchase presentation is unchanged apart from its benefit
+copy. Coffee and alcohol are retired from the offered and active catalogues;
+their saved history remains readable.
+
+`HabitsManager.recordDailyValue` owns canonical unit conversion and serializes
+the complete save. `HabitsWorker` validates values and determines whether an
+entry replaces today's answer or accumulates another occurrence. Missing, No,
+and Yes are distinct states. Morning mood values identify descriptive emojis,
+not health scores; their week is displayed as emojis rather than a numerical
+trend. Recorded counts do not imply that unlimited water or exercise is better.
+
+Custom habits have stable independent IDs and names. The feature retains their
+definitions even when deselected so history remains meaningful. Local storage
+and daily summaries distinguish entries by habit ID and calendar day, preventing
+two custom habits from overwriting each other. New rules and the quick-entry
+ViewModel have focused tests, including concurrent saves and purchase gating.
 
 `HabitsManager` stores one observable `HabitData` containing the selected habit IDs
 and recorded entries. Its public `habits` and `entries` getters read that store;
@@ -239,34 +264,51 @@ published even if cancellation arrives during the save. Calendar-day and foregro
 callbacks recalculate dated results without loading storage. This is the first
 feature using the pattern; the other features have not yet been migrated.
 
-Today renders its form and a fixed-size empty streak bar immediately. Saving and automatic keyboard focus wait for local weight data and derived values to be ready. Cloud synchronization follows local preparation without replacing the screen with a loading indicator.
+Today renders its form and a fixed-size empty streak bar immediately. Saving and automatic keyboard focus wait for local weight data and derived values to be ready. SwiftData persists locally; Apple synchronizes records independently. Completed CloudKit imports reload feature state. Recovery files are never restored automatically.
 
 
-### Habit storage and iCloud
+### SwiftData and independent recovery backups
 
-Local loading and saving never wait for iCloud. `HabitsManager.load()` reads saved
-habits once at launch and allows retry after a failed load. `synchronize()` checks
-iCloud when the app becomes active, loading local data first if needed. Screens
-observe the manager and do not reload it on appearance. Calendar changes call
-`updateCurrentDay()` without a file reload or network request. Recording an entry can
-complete while synchronization is waiting for the network. Local changes still take turns
-because they modify the same file. This is a habit-storage rule, not an app-wide queue.
+`LocalDataStore` owns the SwiftData container on an actor. Its storage models
+remain below repositories; views and feature managers use ordinary domain values.
+Each explicit operation creates a fresh context, disables autosave and saves
+before returning. Managers serialize whole read-modify-save operations.
+Entry saves cannot write habit preferences, and preference saves cannot write
+entries. Saves apply differences from the last loaded state, rather than deleting
+unseen records that arrived through iCloud while a screen was open.
 
-`FileHabitDataStore` writes the current entries and the last synchronized store
-in one atomic JSON write. The stored comparison version identifies pending edits
-and deletions; it is storage information, not another observable feature manager.
-There is no separate pending-upload marker to fail after an otherwise successful save.
-The app is unreleased. Use the current JSON format without compatibility code for
-earlier development versions.
+Apple's `ModelContainer` synchronizes records through a dedicated CloudKit
+container. No custom reconciliation or record-upload engine remains. Models use
+CloudKit-compatible defaults without unique constraints. Completed imports cause
+feature managers to reload; foreground entry also reloads. Synchronization is
+eventual, includes deletions, and does not promise that every recent edit has
+already reached iCloud. Pre-SwiftData development stores are not read or imported;
+there is no compatibility bridge or direct SQLite code.
 
-`CloudKitHabitClient` merges changes to different habits and days. A pending local
-edit or deletion wins when both devices changed the same habit/day; counts are not
-added together. It uses CloudKit's record-change check and retries a conflicting
-save at most three times. Other failures leave local data available and set the
-manager's `synchronizationError`; a later synchronization request or edit retries iCloud.
+`BackupManager.triggerDataBackupIfNeeded()` is requested at launch, foreground,
+successful local edits and completed remote imports. Checks are coalesced.
+`RecoveryBackupFiles` creates a changed snapshot at most once every 24 hours;
+manual backup bypasses that interval. Latest and Previous rotate while dated
+weekly snapshots remain immutable. Both local and iCloud Drive copies use this
+policy. Each installation has its own cloud folder so an incomplete initial
+download cannot overwrite the old phone's backup. Weekly files are not pruned,
+and backup failure never changes whether a local save succeeded.
 
-An upload can finish after another local edit. The file repository preserves that
-new edit when accepting the uploaded result. Likewise, saving a manager's older
-copy applies only its changes to the latest file, preserving downloaded entries.
-Tests exercise these overlaps with a paused cloud client and real temporary files.
-Live CloudKit behavior still needs verification using two signed-in devices.
+Settings → Backups and recovery shows pending, uploaded or failed backup status.
+Writing into the iCloud folder is not proof that an upload completed: the file's
+ubiquitous upload metadata must confirm completion. The container's Documents
+folder is named Trend and visible in Files. These files contain personal data
+and users should share them only intentionally.
+
+Restore is explicit: choose an iCloud Drive file using the system Files picker, inspect its date and record counts, then
+confirm replacement. The selected snapshot is validated before any changes.
+The store saves a pre-restore recovery copy and replaces records/preferences
+in one transaction. Recording is rejected while managers reload restored state.
+Restored edits/deletions synchronize through CloudKit. Normal startup can download
+CloudKit records, but never restores a JSON recovery file automatically.
+
+Verification includes real SwiftData close/reopen, failed writes,
+overlapping weight saves, entry/preference isolation,
+backup rotation and immutable copies. iCloud file coordination is an OS boundary:
+unit tests use a direct-file double. Signed-device upload/download/restore must
+also pass the checklist in BACKUP_VERIFICATION.md.

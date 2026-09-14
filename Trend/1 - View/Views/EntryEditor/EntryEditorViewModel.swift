@@ -24,6 +24,8 @@ final class EntryEditorViewModel {
 
     var title: String { entry == nil ? "Log Weight" : "Edit Entry" }
     var unit: WeightUnit { editor.selectedWeightUnit }
+    var inputStyle: WeightInputStyle { editor.weightInputStyle }
+    func useKeyboard() { editor.setWeightInputStyle(.keyboard) }
     var latestPermittedEntryDate: Date { editor.latestPermittedEntryDate }
     var canSave: Bool { !draft.value.isEmpty && !isSaving }
 

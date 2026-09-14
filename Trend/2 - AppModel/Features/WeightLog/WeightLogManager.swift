@@ -13,6 +13,8 @@ enum WeightLogState: Equatable {
 @MainActor
 @Observable
 final class WeightLogManager {
+    @ObservationIgnored private var operationInProgress = false
+    @ObservationIgnored private var waitingOperations: [CheckedContinuation<Void, Never>] = []
     private let repository: any WeightRepository
     private(set) var state: WeightLogState = .idle
     private(set) var entries: [WeightEntry] = []
@@ -24,23 +26,12 @@ final class WeightLogManager {
 
     // Prepare dependent values from local data before declaring the feature ready.
     func load(prepareLoadedData: @MainActor () async -> Void = {}) async {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
         if state != .ready { state = .loading }
         do {
-            if let repository = repository as? any LocallyCachedWeightRepository {
-                let localStore = try await repository.loadCached()
-                publish(localStore)
-                await prepareLoadedData()
-                state = .ready
-
-                let synchronizedStore = await repository.synchronize(localStore)
-                if synchronizedStore.entries != localStore.entries || synchronizedStore.goalKilograms != localStore.goalKilograms {
-                    publish(synchronizedStore)
-                    await prepareLoadedData()
-                }
-            } else {
-                publish(try await repository.load())
-                await prepareLoadedData()
-            }
+            publish(try await repository.load())
+            await prepareLoadedData()
             state = .ready
         } catch {
             state = .failed(error.localizedDescription)
@@ -48,6 +39,9 @@ final class WeightLogManager {
     }
 
     func add(_ draft: WeightEntryDraft, unit: WeightUnit) async throws {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try await loadBeforeEditing()
         var candidate = store
         candidate.entries.append(WeightEntry(
             date: draft.date,
@@ -58,6 +52,9 @@ final class WeightLogManager {
     }
 
     func update(_ entry: WeightEntry, with draft: WeightEntryDraft, unit: WeightUnit) async throws {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try await loadBeforeEditing()
         var candidate = store
         guard let index = candidate.entries.firstIndex(where: { $0.id == entry.id }) else { return }
         candidate.entries[index].date = draft.date
@@ -67,6 +64,9 @@ final class WeightLogManager {
     }
 
     func delete(_ entry: WeightEntry) async throws {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try await loadBeforeEditing()
         var candidate = store
         candidate.entries.removeAll { $0.id == entry.id }
         try await commit(candidate)
@@ -75,13 +75,21 @@ final class WeightLogManager {
     /// Stores goals in canonical kilograms. SettingsManager converts a value
     /// entered in pounds before it reaches this persistence boundary.
     func setGoal(kilograms: Double?) async throws {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try await loadBeforeEditing()
         var candidate = store
         candidate.goalKilograms = kilograms
         try await commit(candidate)
     }
 
-    func replace(with store: WeightStore) async throws { try await commit(store) }
-    func removeAll() async throws { try await commit(WeightStore(entries: [], goalKilograms: nil)) }
+    func replace(with store: WeightStore) async throws {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try await loadBeforeEditing()
+        try await commit(store)
+    }
+    func removeAll() async throws { try await replace(with: WeightStore(entries: [], goalKilograms: nil)) }
 
     var store: WeightStore { WeightStore(entries: entries, goalKilograms: goalKilograms) }
 
@@ -93,6 +101,22 @@ final class WeightLogManager {
         try await repository.save(sorted)
         publish(sorted)
         state = .ready
+    }
+
+    private func loadBeforeEditing() async throws {
+        try Task.checkCancellation()
+        if state != .ready { publish(try await repository.load()); state = .ready }
+    }
+
+    private func waitForPreviousOperation() async {
+        if operationInProgress {
+            await withCheckedContinuation { waitingOperations.append($0) }
+        } else { operationInProgress = true }
+    }
+
+    private func finishOperation() {
+        if waitingOperations.isEmpty { operationInProgress = false }
+        else { waitingOperations.removeFirst().resume() }
     }
 
     private func publish(_ store: WeightStore) {

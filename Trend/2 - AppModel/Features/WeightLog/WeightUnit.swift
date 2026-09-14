@@ -6,6 +6,8 @@ enum WeightUnit: String, Codable, CaseIterable, Identifiable, Sendable {
     case kilograms
     case pounds
 
+    static let maximumKilograms: Double = 500
+
     var id: Self { self }
     var symbol: String { self == .kilograms ? "kg" : "lb" }
 
@@ -18,7 +20,7 @@ enum WeightUnit: String, Codable, CaseIterable, Identifiable, Sendable {
             throw WeightValidationError.invalidWeight(self)
         }
         let kilograms = self == .kilograms ? number : number * 0.45359237
-        guard (20...500).contains(kilograms) else {
+        guard (20...Self.maximumKilograms).contains(kilograms) else {
             throw WeightValidationError.invalidWeight(self)
         }
         return kilograms

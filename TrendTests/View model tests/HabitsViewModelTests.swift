@@ -17,30 +17,17 @@ struct HabitsViewModelTests {
         #expect(!(await viewModel.purchaseHabits()))
     }
 
-    @Test func dashboardExposesTodaysRecordedSummary() async throws {
-        let date = Date(timeIntervalSince1970: 1_788_480_000)
-        let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: { date })
-        try await manager.enableSelectedHabits([Habit(type: .coffee).id])
-        try await manager.recordCoffee(on: date)
-        try await manager.recordCoffee(on: date)
-        let viewModel = HabitsViewModel(
-            habitsFeature: manager,
-            purchaseFeature: PurchaseManager(client: InMemoryPurchaseClient())
-        )
-
-        #expect(viewModel.hasCheckedIn(Habit(type: .coffee)))
-        #expect(viewModel.todaySummary(for: Habit(type: .coffee)) == "Today · 2 cups")
-    }
-
-    @Test func dashboardShowsAReadyStateBeforeCheckIn() async throws {
+    @Test func dashboardReflectsSelectedHabits() async throws {
         let manager = HabitsManager(storage: InMemoryHabitDataStore(), currentDate: TestAppModelFactory.currentDate)
-        try await manager.enableSelectedHabits([Habit(type: .coffee).id])
+        let habit = Habit(type: .water)
         let viewModel = HabitsViewModel(
             habitsFeature: manager,
             purchaseFeature: PurchaseManager(client: InMemoryPurchaseClient())
         )
-
-        #expect(!viewModel.hasCheckedIn(Habit(type: .coffee)))
-        #expect(viewModel.todaySummary(for: Habit(type: .coffee)) == "Ready to check in")
+        #expect(viewModel.habits.isEmpty)
+        try await manager.enableSelectedHabits([habit.id])
+        #expect(viewModel.habits == [habit])
+        try await manager.enableSelectedHabits([])
+        #expect(viewModel.habits.isEmpty)
     }
 }

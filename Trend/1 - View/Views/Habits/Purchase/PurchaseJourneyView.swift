@@ -99,7 +99,7 @@ struct PurchaseJourneyView: View {
             .opacity(phase >= .benefits ? 1 : 0).offset(y: phase >= .benefits ? 0 : 18)
 
             HStack(spacing: 14) {
-                treat("Coffee", "Count this week’s cups", "cup.and.saucer.fill")
+                treat("Morning mood", "Check in with yourself", "face.smiling")
                 treat("Water", "Notice every glass", "drop.fill")
             }
             .opacity(phase >= .extras ? 1 : 0).offset(y: phase >= .extras ? 0 : 16)
