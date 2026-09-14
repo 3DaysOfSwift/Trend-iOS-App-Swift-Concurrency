@@ -5,7 +5,7 @@ import Foundation
 struct Habit: Codable, Identifiable, Equatable, Sendable {
     enum HabitType: String, Codable, CaseIterable, Sendable {
         case coffee, wakeTime, gymRepetitions, runningDistance, sleep, water, alcohol
-        case morningMood, gymAttendance, exerciseSets, sauna, custom
+        case morningMood, gymAttendance, exerciseSets, sauna, yoga, meditation, custom
     }
 
     let type: HabitType
@@ -22,11 +22,11 @@ struct Habit: Codable, Identifiable, Equatable, Sendable {
 
     // Retired types remain readable in history, but aren't offered as new habits.
     static let availableHabits: [Habit] = [HabitType.morningMood, .gymAttendance,
-        .gymRepetitions, .exerciseSets, .runningDistance, .water, .sleep, .wakeTime, .sauna]
+        .runningDistance, .sauna, .yoga, .meditation]
         .map { Habit(type: $0) }
 
     var isDailyAnswer: Bool {
-        type == .gymAttendance || type == .sauna || type == .custom
+        type == .gymAttendance || type == .sauna || type == .yoga || type == .meditation || type == .custom
     }
 
     init(customName: String, id: String = UUID().uuidString) {
@@ -115,13 +115,13 @@ struct Habit: Codable, Identifiable, Equatable, Sendable {
             desiredDirection = .personalTarget
             symbol = "face.smiling"
             recordingPolicy = .init(defaultValue: 3, range: 1...5, step: 1, accumulatesOccurrences: false)
-        case .gymAttendance, .sauna, .custom:
-            name = type == .gymAttendance ? "Gym visit" : type == .sauna ? "Sauna" : "Custom habit"
+        case .gymAttendance, .sauna, .yoga, .meditation, .custom:
+            name = type == .gymAttendance ? "Gym visit" : type == .sauna ? "Sauna" : type == .yoga ? "Yoga" : type == .meditation ? "Meditation" : "Custom habit"
             prompt = "Did you do this today?"
             unit = ""
             valueType = .number
             desiredDirection = .personalTarget
-            symbol = type == .gymAttendance ? "figure.strengthtraining.traditional" : type == .sauna ? "water.waves" : "checkmark.seal.fill"
+            symbol = type == .gymAttendance ? "figure.strengthtraining.traditional" : type == .sauna ? "water.waves" : type == .yoga ? "figure.yoga" : type == .meditation ? "brain.head.profile" : "checkmark.seal.fill"
             recordingPolicy = .init(defaultValue: 1, range: 0...1, step: 1, accumulatesOccurrences: false)
         case .exerciseSets:
             name = "Exercise sets"

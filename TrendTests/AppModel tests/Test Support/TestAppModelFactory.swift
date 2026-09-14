@@ -49,7 +49,8 @@ enum TestAppModelFactory {
             purchaseFeature: PurchaseManager(client: purchaseClient),
             dailyTips: dailyTips,
             backupFeature: BackupManager(storage: LocalDataStore(directory: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString)),
-                files: RecoveryBackupFiles(folder: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString), cloudFolder: { nil }), settings: settings, reload: {})
+                files: RecoveryBackupFiles(folder: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString), cloudFolder: { nil }), settings: settings, reload: {}),
+            importFeature: WeightImportManager(weightLog: weightLog) { await weightEntries.refresh() }
         )
     }
 }

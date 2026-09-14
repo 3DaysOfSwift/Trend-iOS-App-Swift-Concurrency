@@ -65,9 +65,9 @@ struct HabitsView: View {
                     .multilineTextAlignment(.center)
 
                 VStack(alignment: .leading, spacing: 16) {
-                    benefit("Track your reps in the gym", symbol: "dumbbell.fill")
+                    benefit("Track gym visits, yoga and meditation", symbol: "figure.yoga")
                     benefit("Daily check-ins on your Today screen", symbol: "sun.max.fill")
-                    benefit("Track morning mood, water drank and your own custom habits", symbol: "gift.fill")
+                    benefit("Track morning mood, runs, sauna and your own custom habits", symbol: "gift.fill")
                     benefit("Track your consistency over time", symbol: "chart.xyaxis.line")
                     benefit("See trends in your habits", symbol: "chart.line.uptrend.xyaxis")
                     benefit("Pay once—no subscription", symbol: "infinity")

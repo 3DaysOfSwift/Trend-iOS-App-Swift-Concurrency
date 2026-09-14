@@ -9,6 +9,7 @@ struct TodayView: View {
     @FocusState private var weightIsFocused: Bool
     @State private var showsDetails = false
     @State private var isWeightWheelActive = false
+    @State private var showsWeightInput = false
     @State private var showsResult = false
     @State private var showsCheckInConfirmation = false
     @State private var entryCardOffset: CGFloat = 0
@@ -42,6 +43,17 @@ struct TodayView: View {
         .task(id: viewModel.loadState) {
             guard viewModel.loadState == .ready else { return }
             viewModel.prepareWeightInput()
+            if !showsWeightInput {
+                // Keep the launch card in place while the prepared input gently appears.
+                if !reduceMotion {
+                    do { try await Task.sleep(for: .milliseconds(80)) }
+                    catch { return }
+                }
+                guard !Task.isCancelled else { return }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.55)) {
+                    showsWeightInput = true
+                }
+            }
             await focusWeightField()
         }
         .task(id: viewModel.inputStyle) { await focusWeightField() }
@@ -67,12 +79,13 @@ struct TodayView: View {
 
         return HStack(spacing: 8) {
             if !snapshot.days.isEmpty {
-                HStack(spacing: 4) {
+                VStack(spacing: 2) {
                     Image(systemName: "flame.fill")
                         .foregroundStyle(themeManager.palette.streakAccent.gradient)
                     Text("\(snapshot.currentStreak)")
                         .font(.headline.bold().monospacedDigit())
                 }
+                .fixedSize(horizontal: true, vertical: false)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("\(snapshot.currentStreak) day streak")
 
@@ -179,7 +192,6 @@ struct TodayView: View {
                         .padding()
                         .background(themeManager.palette.error.opacity(0.10), in: RoundedRectangle(cornerRadius: 16))
                 }
-                DailyHabitsView()
             }
             .padding(.horizontal, 20)
             .padding(.top, 20)
@@ -200,14 +212,19 @@ struct TodayView: View {
                 .tracking(1.8)
                 .foregroundStyle(.white.opacity(0.68))
 
-            switch viewModel.inputStyle {
-            case .wheel:
-                WeightWheelInputView(value: $viewModel.draft.value, unit: viewModel.unit,
-                                     useKeyboard: viewModel.useKeyboard)
-            case .keyboard:
-                WeightKeyboardInputView(value: $viewModel.draft.value, unit: viewModel.unit,
-                                        isFocused: $weightIsFocused)
+            Group {
+                switch viewModel.inputStyle {
+                case .wheel:
+                    WeightWheelInputView(value: $viewModel.draft.value, unit: viewModel.unit,
+                                         useKeyboard: viewModel.useKeyboard)
+                case .keyboard:
+                    WeightKeyboardInputView(value: $viewModel.draft.value, unit: viewModel.unit,
+                                            isFocused: $weightIsFocused)
+                }
             }
+            .opacity(showsWeightInput ? 1 : 0)
+            .allowsHitTesting(showsWeightInput)
+            .accessibilityHidden(!showsWeightInput)
 
             Text(viewModel.unit.symbol.uppercased())
                 .font(.headline.monospaced())
@@ -239,28 +256,23 @@ struct TodayView: View {
         .overlay(alignment: .bottomTrailing) {
             Button(action: saveWeight) {
                 ZStack {
-                    Circle()
-                        .fill(.white)
-                        .overlay {
-                            Circle()
-                                .strokeBorder(themeManager.palette.streakAccent, lineWidth: 3)
-                        }
-                        .shadow(color: .black.opacity(0.22), radius: 10, y: 5)
-
                     if viewModel.isSaving {
                         SwiftUI.ProgressView().tint(themeManager.palette.accent)
                     } else {
-                        Image(systemName: "plus")
+                        Image(systemName: viewModel.submittedResult == nil ? "plus" : "checkmark")
                             .font(.system(size: 24, weight: .bold))
                             .foregroundStyle(themeManager.palette.accent)
                     }
                 }
                 .frame(width: 58, height: 58)
             }
-            .buttonStyle(.plain)
-            .disabled(!viewModel.canSave)
-            .opacity(viewModel.canSave ? 1 : 0.42)
-            .accessibilityLabel(viewModel.isSaving ? "Saving weight" : "Submit weight")
+            .buttonStyle(WeightCheckInButtonStyle(
+                isConfirmed: viewModel.submittedResult != nil,
+                stroke: themeManager.palette.streakAccent
+            ))
+            .disabled(!viewModel.canSave || viewModel.submittedResult != nil)
+            .opacity(viewModel.canSave || viewModel.submittedResult != nil ? 1 : 0.42)
+            .accessibilityLabel(viewModel.isSaving ? "Saving weight" : viewModel.submittedResult != nil ? "Weight recorded" : "Submit weight")
             .padding(18)
         }
         .contentShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
@@ -273,7 +285,9 @@ struct TodayView: View {
             VStack(spacing: 14) {
                 pageTitle
                 resultChart(result.assessment)
-                DailyHabitsView()
+                if viewModel.showsHabits {
+                    TodayHabitsView()
+                }
                 guidanceCard(
                     title: "Today’s tiny idea",
                     emoji: "💡",
@@ -508,5 +522,21 @@ struct TodayView: View {
         try? await Task.sleep(for: .milliseconds(250))
         guard !Task.isCancelled, !showsResult, viewModel.inputStyle == .keyboard else { return }
         weightIsFocused = true
+    }
+}
+
+private struct WeightCheckInButtonStyle: ButtonStyle {
+    let isConfirmed: Bool
+    let stroke: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background {
+                Circle()
+                    .fill(.white.opacity(configuration.isPressed || isConfirmed ? 0.75 : 1))
+                    .overlay { Circle().strokeBorder(stroke, lineWidth: 3) }
+                    .shadow(color: .black.opacity(0.22), radius: 10, y: 5)
+            }
+            .contentShape(Circle())
     }
 }

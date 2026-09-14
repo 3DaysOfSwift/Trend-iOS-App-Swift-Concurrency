@@ -23,6 +23,7 @@ final class TodayViewModel {
     }
 
     var latestEntry: WeightEntry? { today.latestWeightEntry }
+    var showsHabits: Bool { today.weightLogState == .ready && today.hasRecordedWeightToday }
     var loadState: WeightLogState { today.weightLogState }
     var changeKilograms: Double? { today.latestWeightChangeKilograms }
     var progressSnapshot: WeightHistoryData { today.progressSnapshot }

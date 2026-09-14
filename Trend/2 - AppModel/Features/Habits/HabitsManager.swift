@@ -25,7 +25,10 @@ final class HabitsManager {
     private var habitData = HabitData(enabledHabits: [], entries: [])
 
     // Observation dependency: `habitData`
-    var enabledHabits: [Habit] { habitData.enabledHabits }
+    var enabledHabits: [Habit] {
+        let availableIDs = Set(availableHabits.map(\.id))
+        return habitData.enabledHabits.filter { availableIDs.contains($0.id) }
+    }
     var availableHabits: [Habit] { Habit.availableHabits + habitData.customHabits }
     var activeHabits: [Habit] {
         let selected = Set(enabledHabits.map(\.id))

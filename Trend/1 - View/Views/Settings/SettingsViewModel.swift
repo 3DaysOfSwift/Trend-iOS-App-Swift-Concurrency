@@ -11,6 +11,7 @@ final class SettingsViewModel {
     var exportDocument: JSONDocument?
     var isExporting = false
     var isImporting = false
+    var importSelection: WeightImportSelection?
     var confirmDelete = false
     var message: String?
     var goalText = ""
@@ -47,12 +48,9 @@ final class SettingsViewModel {
         }
     }
 
-    func importFile(_ result: Result<URL, Error>) async {
+    func selectImportFile(_ result: Result<URL, Error>) {
         do {
-            let url = try result.get()
-            try await settings.importData(from: url)
-            updateGoalText()
-            message = "Backup imported."
+            importSelection = WeightImportSelection(url: try result.get())
         } catch {
             message = error.localizedDescription
         }

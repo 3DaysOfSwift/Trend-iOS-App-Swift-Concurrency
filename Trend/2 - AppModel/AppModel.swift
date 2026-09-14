@@ -17,6 +17,7 @@ final class AppModel {
     let habitsFeature: HabitsManager
     let purchaseFeature: PurchaseManager
     let backupFeature: BackupManager
+    let importFeature: WeightImportManager
     private let dailyTips: DailyTipManager
     private var hasLaunched = false
 
@@ -27,7 +28,8 @@ final class AppModel {
         habitsFeature: HabitsManager,
         purchaseFeature: PurchaseManager,
         dailyTips: DailyTipManager,
-        backupFeature: BackupManager
+        backupFeature: BackupManager,
+        importFeature: WeightImportManager
     ) {
         self.weightEntries = weightEntries
         self.progressFeature = progressFeature
@@ -36,6 +38,7 @@ final class AppModel {
         self.purchaseFeature = purchaseFeature
         self.dailyTips = dailyTips
         self.backupFeature = backupFeature
+        self.importFeature = importFeature
     }
 
     /// Produces the live, non-test AppModel and assembles all production
@@ -97,7 +100,8 @@ final class AppModel {
             habitsFeature: habits,
             purchaseFeature: purchases,
             dailyTips: dailyTips,
-            backupFeature: backups
+            backupFeature: backups,
+            importFeature: WeightImportManager(weightLog: weightLog) { await weightEntries.refresh() }
         )
     }
 

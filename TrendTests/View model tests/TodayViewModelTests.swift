@@ -6,6 +6,26 @@ import Testing
 
 @MainActor
 struct TodayViewModelTests {
+    @Test func habitsRequireWeightRecordedForTodayAndSurviveViewRecreation() async {
+        let now = Date()
+        let appModel = TestAppModelFactory.make(currentDate: { now })
+        await appModel.weightEntries.refresh()
+        let viewModel = TodayViewModel(today: appModel.weightEntries)
+        #expect(!viewModel.showsHabits)
+
+        viewModel.draft = WeightEntryDraft(
+            date: Calendar.current.date(byAdding: .day, value: -1, to: now)!,
+            value: "72.5", note: ""
+        )
+        #expect(await viewModel.save())
+        #expect(!viewModel.showsHabits)
+
+        viewModel.draft = WeightEntryDraft(date: now, value: "72.4", note: "")
+        #expect(await viewModel.save())
+        #expect(viewModel.showsHabits)
+        #expect(TodayViewModel(today: appModel.weightEntries).showsHabits)
+    }
+
     @Test func newDraftAndDateBoundaryComeFromAppModelClock() {
         let now = Date(timeIntervalSince1970: 1_000)
         let viewModel = TodayViewModel(

@@ -55,29 +55,10 @@ final class SettingsManager {
         try await backupFiles.encode(weightLog.store)
     }
 
-    func importData(from url: URL) async throws {
-        let importedStore = try await backupFiles.readWeightStore(from: url)
-        try await weightLog.replace(with: importedStore)
-        await refreshDerivedFeatures()
-    }
-
     func deleteAllData() async throws {
         try await weightLog.removeAll()
         await progress.refresh(entries: [])
         await dailyStreak.refresh(entries: [])
     }
 
-    private func refreshDerivedFeatures() async {
-        let entries = weightLog.entries
-        let goalKilograms = weightLog.goalKilograms
-        let progressTask = Task { @MainActor [progress] in
-            await progress.refresh(entries: entries, goalKilograms: goalKilograms)
-        }
-        let streakTask = Task { @MainActor [dailyStreak] in
-            await dailyStreak.refresh(entries: entries)
-        }
-
-        await progressTask.value
-        await streakTask.value
-    }
 }

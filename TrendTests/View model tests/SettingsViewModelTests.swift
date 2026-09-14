@@ -93,7 +93,7 @@ struct SettingsViewModelTests {
         let viewModel = SettingsViewModel(settings: TestAppModelFactory.make().settingsFeature)
         let error = CocoaError(.fileReadCorruptFile)
 
-        await viewModel.importFile(.failure(error))
+        viewModel.selectImportFile(.failure(error))
 
         #expect(viewModel.message == error.localizedDescription)
     }

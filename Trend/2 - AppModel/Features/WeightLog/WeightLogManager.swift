@@ -91,6 +91,27 @@ final class WeightLogManager {
     }
     func removeAll() async throws { try await replace(with: WeightStore(entries: [], goalKilograms: nil)) }
 
+    /// Import is one serialized, additive save, never a replacement. Reload
+    /// under the operation gate so a preview cannot overwrite intervening edits.
+    func mergeImportedEntries(_ incoming: [WeightEntry]) async throws -> WeightImportMerge {
+        await waitForPreviousOperation()
+        defer { finishOperation() }
+        try Task.checkCancellation()
+        let current = try await repository.load()
+        try WeightImportDocument.validate(incoming)
+        try WeightImportDocument.validate(current.entries)
+        let result = WeightImportMerge(incoming: incoming, existing: current.entries)
+        if !result.additions.isEmpty {
+            try Task.checkCancellation()
+            try await commit(WeightStore(entries: current.entries + result.additions,
+                                         goalKilograms: current.goalKilograms))
+        } else {
+            publish(current)
+            state = .ready
+        }
+        return result
+    }
+
     var store: WeightStore { WeightStore(entries: entries, goalKilograms: goalKilograms) }
 
     private func commit(_ candidate: WeightStore) async throws {

@@ -89,8 +89,8 @@ struct PurchaseJourneyView: View {
 
             VStack(spacing: 14) {
                 Image(systemName: "dumbbell.fill").font(.system(size: 54)).foregroundStyle(themeManager.palette.accent)
-                Text("Track your reps in the gym").font(.title.bold())
-                Text("Record every set and turn your effort into a visible daily habit.")
+                Text("Make time for your daily habits").font(.title.bold())
+                Text("Check in with gym visits, yoga and meditation. See your consistency grow.")
                     .foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity).padding(24)
@@ -100,7 +100,7 @@ struct PurchaseJourneyView: View {
 
             HStack(spacing: 14) {
                 treat("Morning mood", "Check in with yourself", "face.smiling")
-                treat("Water", "Notice every glass", "drop.fill")
+                treat("Meditation", "Make time to pause", "brain.head.profile")
             }
             .opacity(phase >= .extras ? 1 : 0).offset(y: phase >= .extras ? 0 : 16)
 

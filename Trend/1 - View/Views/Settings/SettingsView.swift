@@ -83,8 +83,11 @@ struct SettingsView: View {
             .fileExporter(isPresented: $viewModel.isExporting, document: viewModel.exportDocument, contentType: .json, defaultFilename: "Trend Backup") { result in
                 if case .failure(let error) = result { viewModel.message = error.localizedDescription }
             }
-            .fileImporter(isPresented: $viewModel.isImporting, allowedContentTypes: [.json]) { result in
-                Task { await viewModel.importFile(result) }
+            .fileImporter(isPresented: $viewModel.isImporting, allowedContentTypes: [.json, .commaSeparatedText]) { result in
+                viewModel.selectImportFile(result)
+            }
+            .sheet(item: $viewModel.importSelection) { selection in
+                WeightImportView(url: selection.url)
             }
             .alert("Delete weight history?", isPresented: $viewModel.confirmDelete) {
                 Button("Delete", role: .destructive) { Task { await viewModel.deleteAllData() } }

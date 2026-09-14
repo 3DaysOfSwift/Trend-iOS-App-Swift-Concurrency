@@ -44,6 +44,10 @@ final class WeightEntryManager {
     }
 
     var latestWeightEntry: WeightEntry? { weightLog.latestEntry }
+    var hasRecordedWeightToday: Bool {
+        let now = currentDate()
+        return weightLog.entries.contains { Calendar.current.isDate($0.date, inSameDayAs: now) }
+    }
     var latestWeightChangeKilograms: Double? { progress.snapshot.changeKilograms }
     var progressSnapshot: WeightHistoryData { progress.snapshot }
     var goalWeightKilograms: Double? { weightLog.goalKilograms }

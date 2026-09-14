@@ -3,9 +3,11 @@
 import SwiftUI
 
 struct RootView: View {
+    @State private var viewModel = RootViewModel()
     @Environment(ThemeManager.self) private var themeManager
 
     var body: some View {
+        @Bindable var viewModel = viewModel
         TabView {
             // Tab-bar preferences flow from each tab's content to its enclosing TabView.
             TodayView()
@@ -27,5 +29,9 @@ struct RootView: View {
         }
         .background(themeManager.palette.background.ignoresSafeArea())
         .tint(themeManager.palette.accent)
+        .onOpenURL { viewModel.open($0) }
+        .sheet(item: $viewModel.importSelection, onDismiss: viewModel.importDismissed) { selection in
+            WeightImportView(url: selection.url)
+        }
     }
 }

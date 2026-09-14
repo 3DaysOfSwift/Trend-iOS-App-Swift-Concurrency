@@ -25,7 +25,7 @@ actor HabitsWorker {
         guard names.allSatisfy({ !$0.isEmpty && $0.count <= 60 }) else { throw HabitError.invalidHabitName }
         let added = names.map { Habit(customName: $0) }
         updated.customHabits += added
-        let catalog = Habit.allHabits.filter { $0.type != .custom } + habitData.customHabits
+        let catalog = Habit.availableHabits + habitData.customHabits
         updated.enabledHabits = catalog.filter { ids.contains($0.id) } + added
         let saved = try await storage.savePreferences(selected: updated.enabledHabits, custom: updated.customHabits)
         return calculateSummaries(saved, on: today)
@@ -121,12 +121,12 @@ actor HabitsWorker {
     // The manager serializes this complete read-modify-save operation.
     func recordDailyValue(_ value: Double, habitID: String, habitData: HabitData, today: Date) async throws -> HabitData {
         guard let habit = habitData.enabledHabits.first(where: { $0.id == habitID }),
-              habit.type != .coffee, habit.type != .alcohol,
+              Habit.availableHabits.contains(where: { $0.id == habitID }) || habit.type == .custom,
               habit.recordingPolicy.accepts(value) else { throw HabitError.invalidValue }
         let existing = habitData.entries.first {
             $0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: today)
         }
-        let adds = [.water, .gymRepetitions, .exerciseSets, .runningDistance].contains(habit.type)
+        let adds = habit.type == .runningDistance
         let total = adds ? (existing?.value ?? 0) + value : value
         guard total.isFinite else { throw HabitError.invalidValue }
         if !habit.recordingPolicy.accumulatesOccurrences, !habit.recordingPolicy.accepts(total) {
