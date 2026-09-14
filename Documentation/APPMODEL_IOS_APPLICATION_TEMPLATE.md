@@ -26,6 +26,20 @@ of the application remains explicit and coordinated. The goal is to improve
 future code generation without sacrificing the readability and maintainability
 required by the people who will own the code afterwards.
 
+## Bundle Identifiers for 3 Days of Swift Concurrency Projects
+
+Every new Xcode project we generate uses
+`com.3DaysOfSwiftConcurrency.<AppName>` as its app bundle identifier. Each test
+target appends its own name: `com.3DaysOfSwiftConcurrency.<AppName>.<TestTargetName>`.
+For example, Trend uses `com.3DaysOfSwiftConcurrency.Trend`, with
+`com.3DaysOfSwiftConcurrency.Trend.TrendTests` for its unit-test target and
+`com.3DaysOfSwiftConcurrency.Trend.TrendUITests` for its UI-test target. Use
+bundle-identifier-safe names and apply the identifiers consistently across
+build configurations. This is our project-generation convention; developers
+outside 3 Days of Swift Concurrency should use their own organisation's prefix.
+Do not rename an existing application's bundle identifier without an explicit
+request.
+
 ## Governing Principles
 
 Two principles govern every rule in this document:
