@@ -2,6 +2,12 @@
 
 Trend is a complete, local-first weight tracker and a reference architecture for a greenfield SwiftUI app.
 
+## Cooperative Feature Architecture (CFA)
+This repository uses Cooperative Feature Architecture (CFA) which is reflected in the Xcode folder structure. This architecture has been evolved for use with AI copilots to reduce AI-written component-based architecture which can become less maintainable and messy with no clear relationships visible between how components are used in features.
+
+Open Source CFA Skill Repository
+[https://github.com/3DaysOfSwift/cooperative-feature-architecture](https://github.com/3DaysOfSwift/cooperative-feature-architecture)
+
 ## The architectural sentence
 
 `View → ViewModel → Feature API → Feature Manager → Repository`
