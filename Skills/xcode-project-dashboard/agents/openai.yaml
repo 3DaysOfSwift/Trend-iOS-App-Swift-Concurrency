@@ -1,4 +1,0 @@
-interface:
-  display_name: "Xcode Project Dashboard"
-  short_description: "Rate and visualise modern iOS architecture"
-  default_prompt: "Use $xcode-project-dashboard to generate an Xcode Project Dashboard for this Swift Concurrency app, with reviewed architecture ratings, test-quality assessment and source-linked Task analysis; do not modify the app."

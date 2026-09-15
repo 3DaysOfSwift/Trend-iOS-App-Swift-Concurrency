@@ -1,4 +1,0 @@
-interface:
-  display_name: "Swift Concurrency Migration"
-  short_description: "Build maintainable AppModel SwiftUI apps"
-  default_prompt: "Use $swift-concurrency-migration to structure this SwiftUI application around AppModel and clear feature ownership."
