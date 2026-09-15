@@ -1,5 +1,7 @@
 # Trend
 
+[![3 Days of Swift Concurrency — iOS developer training](readme-images/README-Logo-h512.png)](https://www.3daysofswiftconcurrency.com/)
+
 Trend is a complete, local-first weight tracker and a reference architecture for a greenfield SwiftUI app.
 
 ## Cooperative Feature Architecture (CFA)
@@ -7,6 +9,14 @@ This repository uses Cooperative Feature Architecture (CFA) which is reflected i
 
 Open Source CFA Skill Repository
 [https://github.com/3DaysOfSwift/cooperative-feature-architecture](https://github.com/3DaysOfSwift/cooperative-feature-architecture)
+
+## The publisher and its training
+
+[![3 Days of Swift Concurrency — explore the training](readme-images/README-Logo-h512.png)](https://www.3daysofswiftconcurrency.com/)
+
+**[Explore the training at 3DaysOfSwiftConcurrency.com →](https://www.3daysofswiftconcurrency.com/)**
+
+3 Days of Swift Concurrency offers Swift Concurrency training for iOS developers. CFA shares its approach to maintainable application structure as a free, open-source gift to the industry. You can use the toolkit in personal and commercial projects; no course purchase is required.
 
 ## The architectural sentence
 
@@ -22,26 +32,6 @@ That sentence is also the folder structure. Open `Trend` in Xcode and the first 
 ViewModels and UI-readable feature managers use Apple's Observation framework. Views own their `@Observable` ViewModel with `@State` and create an `@Bindable` projection only when a control requires a binding. The project therefore contains no Combine publisher forwarding or `@Published` state.
 
 Read the complete [`AppModel iOS Application Template`](Documentation/APPMODEL_IOS_APPLICATION_TEMPLATE.md) for the reusable rules and [`ARCHITECTURE.md`](Documentation/ARCHITECTURE.md) for Trend's concrete implementation. The [Swift Concurrency Migration skill](Skills/swift-concurrency-migration/SKILL.md) applies the same rules when an AI coding agent creates, changes, or reviews an iOS application.
-
-## AI skills
-
-This repository includes two reusable skills:
-
-- [Swift Concurrency Migration](Skills/swift-concurrency-migration/SKILL.md): build, review or migrate an application using the AppModel and Feature Manager architecture.
-- [Xcode Project Dashboard](Skills/xcode-project-dashboard/SKILL.md): read an application's code and draw understandable task journeys, including child tasks, suspension, cancellation and operation ordering. Includes the interactive Load Habits example from Trend.
-
-`Skills` contains exactly one folder per skill. Supporting references, metadata and assets stay with their owning skill. Project documents live in `Documentation`; this README remains the repository entry point. The architecture skill currently reads canonical documents from `Documentation`, so its folder alone is not a standalone installation package. The overview skill can explain other Swift architectures without changing them.
-
-```text
-Trend/
-├── Skills/
-│   ├── swift-concurrency-migration/
-│   └── xcode-project-dashboard/
-├── Documentation/
-├── Trend/
-├── TrendTests/
-└── Trend.xcodeproj/
-```
 
 ## SwiftData, iCloud synchronization and recovery backups
 
